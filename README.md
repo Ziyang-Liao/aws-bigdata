@@ -1,7 +1,7 @@
 # AWS 大数据实战指南
 
 [![AWS](https://img.shields.io/badge/AWS-BigData-orange.svg)](https://aws.amazon.com/big-data/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 AWS 大数据服务的操作配置与实战指南合集，涵盖 ETL 管道、流式数据入湖、数据仓库等场景。
 
@@ -69,4 +69,4 @@ RDS MySQL → Glue ETL (增量抽取 + PII 脱敏 + MERGE 去重) → S3 Iceberg
 
 ## License
 
-Apache 2.0
+MIT
