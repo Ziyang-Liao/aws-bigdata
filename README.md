@@ -19,9 +19,14 @@ aws-bigdata/
 │   ├── glue_mysql_to_iceberg_partitioned.py    # Glue 5.0 ETL: MySQL → Iceberg 分区表 (按 city 分区)
 │   ├── glue_mysql_to_s3tables.py               # Glue 5.0 ETL: MySQL → S3 Tables (托管 Iceberg)
 │   └── verify_workshop.sh                      # ETL Workshop 端到端验证脚本
-└── s3table/                                    # S3 Tables 相关方案与指南
-    ├── MSK-Serverless-to-S3Tables-Guide.md     # MSK → S3 Tables 实战操作指南
-    └── S3_TABLES_WIP.md                        # S3 Tables 方案调研笔记
+├── s3table/                                    # S3 Tables 相关方案与指南
+│   ├── MSK-Serverless-to-S3Tables-Guide.md     # MSK → S3 Tables 实战操作指南
+│   └── S3_TABLES_WIP.md                        # S3 Tables 方案调研笔记
+└── strands-agent-demo/                         # Strands Agent 智能体 Demo
+    ├── README.md                               # Demo 说明
+    ├── src/demo.ts                             # 灯效控制 Agent (3 个 Skill/Tool)
+    ├── package.json                            # 项目依赖
+    └── tsconfig.json                           # TypeScript 配置
 ```
 
 ## 内容概览
@@ -56,6 +61,18 @@ RDS MySQL → Glue ETL (增量抽取 + PII 脱敏 + MERGE 去重) → S3 Iceberg
 - Iceberg Kafka Connect 1.7.1 写入 S3 Tables REST Catalog
 - 自动建表、Schema Evolution
 - 详细的踩坑记录（7 个常见问题及解决方案）
+
+### Strands Agent 智能体 Demo (`strands-agent-demo/`)
+
+基于 Strands Agents SDK (TypeScript) + Bedrock Claude 的灯效控制 Demo：
+
+```
+自然语言输入 → Strands Agent → toggle_light / set_brightness / set_color → 模拟 MCP 响应
+```
+
+- 3 个自定义 Tool（开关灯、亮度、颜色）
+- 模拟 MCP 设备响应
+- 纯脚本验证，`npm run demo` 即可运行
 
 ## 后续规划
 
