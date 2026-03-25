@@ -22,11 +22,14 @@ aws-bigdata/
 ├── s3table/                                    # S3 Tables 相关方案与指南
 │   ├── MSK-Serverless-to-S3Tables-Guide.md     # MSK → S3 Tables 实战操作指南
 │   └── S3_TABLES_WIP.md                        # S3 Tables 方案调研笔记
-└── strands-agent-demo/                         # Strands Agent 智能体 Demo
-    ├── README.md                               # Demo 说明
-    ├── src/demo.ts                             # 灯效控制 Agent (3 个 Skill/Tool)
-    ├── package.json                            # 项目依赖
-    └── tsconfig.json                           # TypeScript 配置
+└── strands-agent-demo/                         # Strands Agent 智能体 Demo (Python)
+    ├── README.md                               # 完整操作指南 (Tool vs Skill 对比)
+    ├── tools.py                                # Tool 定义 — 3 个灯效控制工具 (@tool)
+    ├── skills/scene-mode/SKILL.md              # Skill 定义 — 场景模式知识包 (SKILL.md)
+    ├── demo.py                                 # 本地测试 — Tool + Skill 对比演示
+    ├── server.py                               # AgentCore 服务 — Flask HTTP 入口
+    ├── Dockerfile                              # 容器镜像 (arm64, Python 3.12)
+    └── requirements.txt                        # 依赖
 ```
 
 ## 内容概览
@@ -64,15 +67,16 @@ RDS MySQL → Glue ETL (增量抽取 + PII 脱敏 + MERGE 去重) → S3 Iceberg
 
 ### Strands Agent 智能体 Demo (`strands-agent-demo/`)
 
-基于 Strands Agents SDK (TypeScript) + Bedrock Claude 的灯效控制 Demo：
+基于 Strands Agents SDK (Python) + Bedrock AgentCore 的灯效控制 Demo，同时展示 **Tool** 和 **Skill** 两种能力扩展方式：
 
 ```
-自然语言输入 → Strands Agent → toggle_light / set_brightness / set_color → 模拟 MCP 响应
+自然语言输入 → Strands Agent → Tool (执行操作) + Skill (加载领域知识) → 模拟 MCP 响应
 ```
 
-- 3 个自定义 Tool（开关灯、亮度、颜色）
-- 模拟 MCP 设备响应
-- 纯脚本验证，`npm run demo` 即可运行
+- **Tool**：3 个 `@tool` 装饰器函数（开关灯、亮度、颜色），直接执行原子操作
+- **Skill**：`SKILL.md` 场景模式知识包（电影/派对/阅读等），按需加载指导 Agent 组合调用多个 Tool
+- 已部署到 Amazon Bedrock AgentCore Runtime
+- 详细的 Tool vs Skill 对比说明和模型切换指南
 
 ## 后续规划
 
