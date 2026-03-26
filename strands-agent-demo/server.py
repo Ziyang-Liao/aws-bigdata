@@ -1,3 +1,4 @@
+from strands.models.bedrock import BedrockModel
 """
 AgentCore Runtime HTTP 服务
 POST /invocations — Agent 调用入口
@@ -13,7 +14,10 @@ app = Flask(__name__)
 
 skill_plugin = AgentSkills(skills="./skills/scene-mode")
 
+model = BedrockModel(model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0", region_name="us-east-1")
+
 agent = Agent(
+    model=model,
     tools=[toggle_light, set_brightness, set_color],
     plugins=[skill_plugin],
     system_prompt=(

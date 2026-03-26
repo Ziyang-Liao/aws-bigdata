@@ -1,3 +1,4 @@
+from strands.models.bedrock import BedrockModel
 """
 本地 Demo — 同时展示 Tool 和 Skill 的使用方式
 
@@ -12,7 +13,10 @@ from tools import toggle_light, set_brightness, set_color, device_state
 skill_plugin = AgentSkills(skills="./skills/scene-mode")
 
 # ── 创建 Agent（同时注册 Tool + Skill）────────────
+model = BedrockModel(model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0", region_name="us-east-1")
+
 agent = Agent(
+    model=model,
     tools=[toggle_light, set_brightness, set_color],
     plugins=[skill_plugin],
     system_prompt=(
