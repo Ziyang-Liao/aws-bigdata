@@ -364,78 +364,230 @@ watch -n 5 "aws bedrock-agentcore-control get-agent-runtime \
 
 ---
 
-## 7. 调用验证
+## 7. 当前使用的模型
+
+### 7.1 模型版本
+
+本项目使用 **Claude Haiku 4.5**，通过 **跨区域推理（Cross-Region Inference）** 方式调用：
+
+```
+模型 ID: us.anthropic.claude-haiku-4-5-20251001-v1:0
+```
+
+代码中的配置（`server.py` / `demo.py`）：
+
+```python
+from strands.models.bedrock import BedrockModel
+
+model = BedrockModel(
+    model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    region_name="us-east-1",
+)
+```
+
+### 7.2 什么是跨区域推理？
+
+模型 ID 前面的 `us.` 前缀表示使用 AWS 的**跨区域推理（Cross-Region Inference）**功能：
+
+- **不加前缀**（如 `anthropic.claude-haiku-4-5-20251001-v1:0`）：请求只发到你指定的单个区域（如 us-east-1），如果该区域繁忙，可能排队等待
+- **加 `us.` 前缀**：请求会自动路由到美国区域中最空闲的节点（us-east-1、us-west-2 等），减少排队延迟
+- **加 `global.` 前缀**：路由范围更大（全球），但可能增加网络延迟
+
+> 简单理解：`us.` 就像高速公路的 ETC 通道，自动选最短的队排。
+
+### 7.3 为什么选 Haiku 4.5？
+
+| 模型 | 单次 Tool 调用 | Skill 场景模式（4轮调用） | 适合场景 |
+|------|---------------|------------------------|----------|
+| Claude Sonnet 4.5（默认） | 8-10s | 15-20s | 复杂推理 |
+| **Claude Haiku 4.5** | **2.5-3.5s** | **4.5-5.5s** | ✅ 本项目：简单工具调用 |
+| Claude Haiku 3.5 | 2-3s | 4-5s | 更便宜但能力稍弱 |
+
+灯效控制场景不需要复杂推理，Haiku 4.5 在速度和能力之间取得了最佳平衡。
+
+---
+
+## 8. 调用验证
+
+部署完成后，有两种方式验证。
+
+### 8.1 方式一：AWS CLI（最简单）
+
+直接在终端执行，把引号里的中文换成你想测试的指令即可：
+
+**测试 Tool — 开灯：**
+
+```bash
+echo -n '帮我开灯' | base64 | xargs -I{} aws bedrock-agentcore invoke-agent-runtime \
+  --agent-runtime-arn "arn:aws:bedrock-agentcore:us-east-1:073090110765:runtime/light_control_agent-5mGnjk7jwJ" \
+  --runtime-session-id "test-$(date +%s)-padding-xxxxxxxxx" \
+  --qualifier DEFAULT --payload '{}' --region us-east-1 /tmp/resp.json \
+  && python3 -c "import json;d=json.load(open('/tmp/resp.json'));print(d['response']);print(d['deviceState'])"
+```
+
+**测试 Skill — 电影模式：**
+
+```bash
+echo -n '切换到电影模式' | base64 | xargs -I{} aws bedrock-agentcore invoke-agent-runtime \
+  --agent-runtime-arn "arn:aws:bedrock-agentcore:us-east-1:073090110765:runtime/light_control_agent-5mGnjk7jwJ" \
+  --runtime-session-id "test-$(date +%s)-padding-xxxxxxxxx" \
+  --qualifier DEFAULT --payload '{}' --region us-east-1 /tmp/resp.json \
+  && python3 -c "import json;d=json.load(open('/tmp/resp.json'));print(d['response']);print(d['deviceState'])"
+```
+
+> **为什么要 base64？** AWS CLI 的 `--payload` 参数只接受 ASCII 字符，中文需要先 base64 编码。AgentCore 会自动解码。
+
+> **`runtime-session-id` 为什么这么长？** AgentCore 要求 session ID 至少 33 个字符，`test-$(date +%s)-padding-xxxxxxxxx` 刚好满足。
+
+### 8.2 方式二：Python 脚本
 
 ```python
 import boto3, json
 
 client = boto3.client("bedrock-agentcore", region_name="us-east-1")
 
-for prompt in ["帮我开灯", "切换到电影模式", "开派对模式"]:
-    resp = client.invoke_agent_runtime(
-        runtimeSessionId="test-session-" + "x" * 30,
-        agentRuntimeArn="arn:aws:bedrock-agentcore:us-east-1:<ACCOUNT>:runtime/<RUNTIME_ID>",
-        qualifier="DEFAULT",
-        payload=prompt.encode(),
-    )
-    body = json.loads(resp["response"].read().decode())
-    print(f"📝 {prompt}")
-    print(f"🤖 {body['response']}")
-    print(f"💡 {body['deviceState']}\n")
+prompt = "切换到电影模式"  # ← 改成你想测的指令
+
+resp = client.invoke_agent_runtime(
+    runtimeSessionId="test-session-" + "x" * 30,
+    agentRuntimeArn="arn:aws:bedrock-agentcore:us-east-1:<ACCOUNT_ID>:runtime/<RUNTIME_ID>",
+    qualifier="DEFAULT",
+    payload=prompt.encode(),
+)
+
+data = json.loads(resp["response"].read().decode())
+print("🤖", data["response"])
+print("💡", data["deviceState"])
+```
+
+### 8.3 实际测试结果
+
+以下是 Haiku 4.5 跨区域推理的实测结果：
+
+```
+🔦 灯效控制 Agent — Haiku 4.5 测试
+=======================================================
+
+[Tool] 📝 帮我把客厅的灯打开
+🤖 好的！客厅的灯已经打开了。当前亮度为50%，颜色为白色。
+💡 {'brightness': 50, 'color': '#FFFFFF', 'power': True}
+⏱️  3.6s
+
+[Tool] 📝 把亮度调到80
+🤖 亮度已调至80%，灯光现在是中等偏亮的状态。
+💡 {'brightness': 80, 'color': '#FFFFFF', 'power': True}
+⏱️  2.5s
+
+[Tool] 📝 换成暖白色
+🤖 已为您切换到暖白色！
+💡 {'brightness': 50, 'color': '#FFD700', 'power': True}
+⏱️  3.5s
+
+[Skill] 📝 切换到电影模式
+🤖 ✨ 已成功切换到电影模式！暖白光色，亮度20%，完美的观影氛围！
+💡 {'brightness': 20, 'color': '#FFD700', 'power': True}
+⏱️  5.7s
+
+[Skill] 📝 开派对模式
+🤖 ✨ 派对模式已激活！亮度100%，紫色灯光，准备好嗨皮了！🎉
+💡 {'brightness': 100, 'color': '#800080', 'power': True}
+⏱️  4.9s
+
+[Tool] 📝 关灯
+🤖 灯已关闭。
+💡 {'brightness': 50, 'color': '#FFFFFF', 'power': False}
+⏱️  2.5s
 ```
 
 ---
 
-## 8. 模型切换
+## 9. 模型切换指南
 
-### 8.1 修改代码
+如果你想换用其他模型，按以下步骤操作。
 
-编辑 `server.py` 或 `demo.py`：
+### 9.1 修改代码
+
+编辑 `server.py`（和 `demo.py`），修改 `model_id`：
 
 ```python
 from strands.models.bedrock import BedrockModel
 
-# Claude Haiku (更快更便宜)
-model = BedrockModel(model_id="anthropic.claude-3-5-haiku-20241022-v1:0", region_name="us-east-1")
+# 当前使用：Haiku 4.5 跨区域推理（推荐）
+model = BedrockModel(model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0", region_name="us-east-1")
 
-# Amazon Nova Pro
-model = BedrockModel(model_id="amazon.nova-pro-v1:0", region_name="us-east-1")
+# 或：Sonnet 4（更强但更慢）
+model = BedrockModel(model_id="us.anthropic.claude-sonnet-4-20250514-v1:0", region_name="us-east-1")
+
+# 或：Amazon Nova Pro（AWS 自研）
+model = BedrockModel(model_id="us.amazon.nova-pro-v1:0", region_name="us-east-1")
 
 agent = Agent(model=model, tools=[...], plugins=[...])
 ```
 
-### 8.2 常用模型 ID
+### 9.2 常用模型 ID 速查表
 
-| 模型 | Model ID | 特点 |
-|------|----------|------|
-| Claude Sonnet 4 | `anthropic.claude-sonnet-4-20250514-v1:0` | 默认，均衡 |
-| Claude Haiku 3.5 | `anthropic.claude-3-5-haiku-20241022-v1:0` | 快速低成本 |
-| Amazon Nova Pro | `amazon.nova-pro-v1:0` | AWS 自研 |
+| 模型 | 单区域 ID | 跨区域 ID（推荐） | 速度 | 能力 |
+|------|-----------|-------------------|------|------|
+| **Haiku 4.5** | `anthropic.claude-haiku-4-5-20251001-v1:0` | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | ⚡⚡⚡ 最快 | ★★★ |
+| Haiku 3.5 | `anthropic.claude-3-5-haiku-20241022-v1:0` | `us.anthropic.claude-3-5-haiku-20241022-v1:0` | ⚡⚡⚡ | ★★ |
+| **Sonnet 4** | `anthropic.claude-sonnet-4-20250514-v1:0` | `us.anthropic.claude-sonnet-4-20250514-v1:0` | ⚡⚡ | ★★★★ |
+| Sonnet 4.5 | `anthropic.claude-sonnet-4-5-20250929-v1:0` | `global.anthropic.claude-sonnet-4-5-20250929-v1:0` | ⚡ | ★★★★★ |
+| Nova Pro | `amazon.nova-pro-v1:0` | `us.amazon.nova-pro-v1:0` | ⚡⚡ | ★★★ |
+| Nova Lite | `amazon.nova-lite-v1:0` | `us.amazon.nova-lite-v1:0` | ⚡⚡⚡ | ★★ |
 
-### 8.3 重新部署
+> **选型建议**：简单工具调用场景用 Haiku 4.5，复杂推理场景用 Sonnet 4 或 4.5。
+
+### 9.3 本地验证模型 ID 是否可用
+
+修改代码前，先用这条命令验证模型 ID 是否正确、是否有访问权限：
 
 ```bash
+python3 -c "
+import boto3
+client = boto3.client('bedrock-runtime', region_name='us-east-1')
+resp = client.invoke_model(
+    modelId='us.anthropic.claude-haiku-4-5-20251001-v1:0',
+    body='{\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":10,\"anthropic_version\":\"bedrock-2023-05-31\"}'
+)
+print(resp['body'].read().decode()[:200])
+"
+```
+
+如果返回正常 JSON 响应，说明模型可用。如果报错 `AccessDeniedException`，需要在 Bedrock 控制台开启该模型的访问权限。
+
+### 9.4 重新部署到 AgentCore
+
+```bash
+# 1. 重新构建镜像
 docker buildx build --platform linux/arm64 \
   --tag $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:latest \
   --push --no-cache .
 
+# 2. 更新 AgentCore Runtime
 aws bedrock-agentcore-control update-agent-runtime \
-  --agent-runtime-id $RUNTIME_ID \
+  --agent-runtime-id "$RUNTIME_ID" \
   --agent-runtime-artifact "{\"containerConfiguration\":{\"containerUri\":\"$IMAGE_URI\"}}" \
   --role-arn "$ROLE_ARN" \
   --network-configuration networkMode=PUBLIC \
   --protocol-configuration serverProtocol=HTTP \
   --region $AWS_REGION
+
+# 3. 等待 READY（约 30 秒）
+watch -n 5 "aws bedrock-agentcore-control get-agent-runtime \
+  --agent-runtime-id $RUNTIME_ID --region $AWS_REGION --query status --output text"
 ```
 
 ---
 
-## 9. 常见问题
+## 10. 常见问题
 
 | 问题 | 原因 | 解决 |
 |------|------|------|
 | `Architecture incompatible` | AgentCore 仅支持 arm64 | Dockerfile 用 `--platform=linux/arm64`，buildx 构建 |
 | `No matching distribution` | Python < 3.10 | 升级 Python 或用 Docker |
-| Session ID 长度不足 | `runtimeSessionId` 需 ≥ 33 字符 | 生成更长的 session ID |
+| Session ID 长度不足 | `runtimeSessionId` 需 ≥ 33 字符 | 用 `"test-$(date +%s)-padding-xxxxxxxxx"` |
 | Skill 未激活 | system prompt 未提示使用 Skill | 在 system prompt 中明确提到"如果用户提到场景/模式，先激活技能" |
 | RuntimeClientError 424 | 容器启动失败 | `aws logs tail /aws/bedrock-agentcore/runtimes/$RUNTIME_ID-DEFAULT` |
+| CLI payload 中文报错 | `--payload` 只接受 ASCII | 用 `echo -n '中文' \| base64` 编码后传入 |
+| `AccessDeniedException` | 模型未开启访问 | Bedrock 控制台 → Model access → 勾选对应模型 |
+| 响应很慢（>10s） | 使用了默认 Sonnet 4.5 | 换成 Haiku 4.5 + `us.` 跨区域前缀 |
