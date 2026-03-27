@@ -142,3 +142,61 @@ WHERE _heartbeat IS NULL OR _heartbeat = false;
 ```
 
 **核心原则：在 Flink < 1.20.1 上，idle-timeout 和反压/水印对齐不能同时安全使用。**
+
+## 四、指标实测验证（EMR 7.11.0 / Flink 1.20.0）
+
+以下所有指标均在 FLINK-35886 复现环境中通过 REST API 实际验证，确认存在且有值。
+
+### 4.1 REST API 接口格式
+
+```
+GET /jobs/<job-id>/vertices/<vertex-id>/subtasks/metrics?get=<metric-name>
+
+返回格式:
+[{"id":"<metric-name>","min":0.0,"max":0.0,"avg":0.0,"sum":0.0,"skew":0.0}]
+
+注意: metric name 中的 [] 需要 URL encode → %5B %5D
+```
+
+### 4.2 Source 算子指标（vertex: `Source: order_events[1] -> Calc[2]`）
+
+| 指标名 | 实测值 | 是否存在 | 说明 |
+|--------|--------|----------|------|
+| `Source__order_events[1].sourceIdleTime` | **3,416,399 ms** (~57min) | ✅ 存在 | Source 被标记 idle 的累计时间。异常大 = 误判 |
+| `Source__order_events[1].watermarkAlignmentDrift` | **-9.22E18** (Long.MIN) | ✅ 存在 | 水印对齐漂移。Long.MIN = 对齐状态异常 |
+| `Source__order_events[1].watermarkLag` | **1.77E12 ms** | ✅ 存在 | 水印与当前时间的差距。极大 = 水印停滞 |
+| `Source__order_events[1].currentOutputWatermark` | **4,996,000 ms** (4996s) | ✅ 存在 | Source 输出水印。跳跃到 4996 = 异常 |
+| `Source__order_events[1].currentEmitEventTimeLag` | **59,604 ms** | ✅ 存在 | 最后发出事件的时间延迟 |
+| `isBackPressured` | **[]** (空数组) | ⚠️ 存在但无值 | 本场景无反压，所以返回空 |
+| `accumulateBackPressuredTimeMs` | **0** | ✅ 存在 | 累计反压时间。本场景为 0 |
+| `accumulateIdleTimeMs` | **3,721,296 ms** (~62min) | ✅ 存在 | 算子级别 idle 累计时间 |
+| `accumulateBusyTimeMs` | **0** | ✅ 存在 | 算子忙碌时间。0 = 完全空闲 |
+
+### 4.3 窗口聚合算子指标（vertex: `GroupWindowAggregate[4] -> Calc[5] -> Sink: result_sink[6]`）
+
+| 指标名 | 实测值 | 是否存在 | 说明 |
+|--------|--------|----------|------|
+| `GroupWindowAggregate[4].numLateRecordsDropped` | **13** | ✅ 存在 | **关键指标！** 13 条数据被丢弃 |
+| `GroupWindowAggregate[4].lateRecordsDroppedRate` | **0** | ✅ 存在 | 当前丢弃速率（数据已发完所以为 0） |
+| `GroupWindowAggregate[4].watermarkLatency` | **1.77E12 ms** | ✅ 存在 | 水印延迟 |
+| `currentInputWatermark` | **4,996,000 ms** (4996s) | ✅ 存在 | 聚合算子输入水印 |
+
+### 4.4 指标可用性总结
+
+| 文档中提到的指标 | REST API | Flink Web UI Metrics Tab | 实测结论 |
+|-----------------|----------|--------------------------|----------|
+| `numLateRecordsDropped` | ✅ 有值 | ✅ 可添加 | **最关键的告警指标** |
+| `currentInputWatermark` | ✅ 有值 | ✅ 可添加 | 可检测水印跳跃 |
+| `sourceIdleTime` | ✅ 有值 | ✅ 可添加 | 可检测 idle 误判 |
+| `watermarkAlignmentDrift` | ✅ 有值 | ✅ 可添加 | 可检测对齐异常 |
+| `isBackPressured` | ⚠️ 无反压时返回空数组 | ✅ BackPressure Tab | 需通过 BackPressure Tab 查看 |
+| `accumulateBackPressuredTimeMs` | ✅ 有值 | ✅ 可添加 | 比 isBackPressured 更可靠 |
+| `watermarkLag` | ✅ 有值 | ✅ 可添加 | 文档未提但很有用 |
+| `accumulateIdleTimeMs` | ✅ 有值 | ✅ 可添加 | 算子级别 idle 时间 |
+
+### 4.5 注意事项
+
+1. **`isBackPressured`** 在无反压时返回空数组 `[]` 而非 `false`，建议改用 `accumulateBackPressuredTimeMs > 0` 判断
+2. **`watermarkAlignmentDrift`** 值为 `-9.22E18`（Long.MIN_VALUE）表示对齐状态异常或未初始化
+3. **`sourceIdleTime`** 和 **`accumulateIdleTimeMs`** 是两个不同指标：前者是 Source connector 级别，后者是算子级别
+4. 所有指标在 Flink Web UI 的 **Metrics Tab** 中均可通过搜索添加到图表中实时观察
