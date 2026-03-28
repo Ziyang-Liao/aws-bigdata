@@ -2,7 +2,6 @@
 
 基于 Strands Agents SDK (Python) 的标准 Tool + Skill 架构，部署在 AWS Bedrock AgentCore 上，通过 CloudFront 对外提供 HTTPS 服务。
 
-**在线演示**: https://d1aul19ygxzvce.cloudfront.net/
 
 ---
 
