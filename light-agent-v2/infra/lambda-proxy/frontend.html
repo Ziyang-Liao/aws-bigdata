@@ -1,0 +1,1932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Light Assistant — Powered by AWS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================
+   CSS Variables & Reset
+   ============================================ */
+:root {
+  --bg0: #08080f;
+  --bg1: #0e0e1a;
+  --bg2: #161625;
+  --bg3: #1e1e32;
+  --bg4: #2a2a42;
+  --text0: #f0eef6;
+  --text1: #c4c0d4;
+  --text2: #8a85a0;
+  --accent: #8b5cf6;
+  --accent-dim: #6d3fd9;
+  --accent2: #06d6a0;
+  --accent2-dim: #04a87e;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --transition: 0.3s cubic-bezier(.4,0,.2,1);
+  --glow-spread: 60px;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Outfit', system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg0);
+  color: var(--text0);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.5;
+}
+
+/* Background ambient effect */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(139,92,246,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 90%, rgba(6,214,160,0.06) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Noise texture overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 256px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ============================================
+   Layout
+   ============================================ */
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 20px 28px 40px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0 28px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--text0) 40%, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+}
+
+.logo-sub {
+  font-size: 0.7rem;
+  color: var(--text2);
+  letter-spacing: 0.06em;
+  margin-top: 1px;
+}
+
+.logo-sub strong {
+  color: var(--text1);
+  font-weight: 600;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--bg2);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  color: var(--text2);
+  border: 1px solid var(--bg3);
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent2);
+  box-shadow: 0 0 6px var(--accent2);
+}
+
+.status-dot.offline { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 28px;
+  align-items: start;
+}
+
+.col-left {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.col-right {
+  position: sticky;
+  top: 20px;
+}
+
+/* ============================================
+   Cards
+   ============================================ */
+.card {
+  background: var(--bg1);
+  border: 1px solid var(--bg3);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--bg3);
+}
+
+.card-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text0);
+  letter-spacing: -0.01em;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+/* ============================================
+   Living Room Scene (SVG)
+   ============================================ */
+.scene-wrapper {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: linear-gradient(180deg, #0e0e1c 0%, var(--bg1) 100%);
+  border: 1px solid var(--bg3);
+  box-shadow: 0 4px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.scene-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  min-height: 420px;
+}
+
+/* Light glow transitions */
+.scene-svg .light-glow {
+  transition: fill 0.8s ease, opacity 0.8s ease, filter 0.8s ease;
+}
+
+.scene-svg .light-body {
+  transition: fill 0.6s ease, stroke 0.6s ease, opacity 0.6s ease;
+}
+
+.scene-svg .ambient-spill {
+  transition: fill 0.8s ease, opacity 1s ease;
+}
+
+/* Theme animations */
+@keyframes twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes flicker {
+  0% { opacity: 1; }
+  10% { opacity: 0.85; }
+  20% { opacity: 1; }
+  30% { opacity: 0.9; }
+  50% { opacity: 1; }
+  70% { opacity: 0.8; }
+  80% { opacity: 1; }
+  100% { opacity: 0.95; }
+}
+
+@keyframes flow {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(30deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.anim-twinkle { animation: twinkle 2.5s ease-in-out infinite; }
+.anim-flicker { animation: flicker 1.5s ease-in-out infinite; }
+.anim-flow { animation: flow 4s ease-in-out infinite alternate; }
+.anim-pulse { animation: pulse-glow 3s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-twinkle, .anim-flicker, .anim-flow, .anim-pulse {
+    animation: none !important;
+  }
+}
+
+/* Scene label tags */
+.scene-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.scene-label {
+  position: absolute;
+  font-size: 0.65rem;
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--text0);
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(8px);
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.scene-label:hover {
+  background: rgba(139,92,246,0.4);
+  transform: scale(1.05);
+}
+
+.scene-label.active {
+  background: rgba(139,92,246,0.5);
+  border-color: rgba(139,92,246,0.5);
+}
+
+/* ============================================
+   Theme Presets
+   ============================================ */
+.themes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.theme-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 10px;
+  background: var(--bg2);
+  border: 1.5px solid var(--bg3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+  color: var(--text1);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.theme-btn:hover {
+  border-color: var(--bg4);
+  background: var(--bg3);
+  transform: translateY(-2px);
+}
+
+.theme-btn.active {
+  border-color: var(--accent);
+  background: rgba(139,92,246,0.12);
+  color: var(--text0);
+  box-shadow: 0 0 20px rgba(139,92,246,0.15);
+}
+
+.theme-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.theme-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.theme-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.theme-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+/* ============================================
+   Device Control Cards
+   ============================================ */
+.devices-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.device-card {
+  background: var(--bg2);
+  border: 1px solid var(--bg3);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.device-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--device-color, var(--bg4));
+  opacity: var(--device-on, 0);
+  transition: all 0.6s ease;
+}
+
+.device-card:hover {
+  border-color: var(--bg4);
+}
+
+.device-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.device-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.device-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-xs);
+  background: var(--bg3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: all 0.4s ease;
+}
+
+.device-card[data-on="true"] .device-icon {
+  background: color-mix(in srgb, var(--device-color, var(--accent)) 25%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--device-color, var(--accent)) 30%, transparent);
+}
+
+.device-name {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text0);
+}
+
+.device-type {
+  font-size: 0.68rem;
+  color: var(--text2);
+  margin-top: 1px;
+}
+
+/* Toggle switch */
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--bg4);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: var(--text2);
+  border-radius: 50%;
+  transition: all var(--transition);
+}
+
+.toggle input:checked + .toggle-track {
+  background: var(--accent);
+}
+
+.toggle input:checked + .toggle-track::after {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+/* Brightness slider */
+.brightness-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.brightness-label {
+  font-size: 0.68rem;
+  color: var(--text2);
+  width: 14px;
+  text-align: center;
+}
+
+.brightness-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--bg4), var(--device-color, var(--accent)));
+  outline: none;
+  transition: background 0.4s ease;
+}
+
+.brightness-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  transition: box-shadow var(--transition);
+}
+
+.brightness-slider::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.1), 0 1px 4px rgba(0,0,0,0.4);
+}
+
+.brightness-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+.brightness-val {
+  font-size: 0.72rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--text1);
+  min-width: 28px;
+  text-align: right;
+}
+
+/* Color swatches */
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+
+.color-swatch:hover {
+  transform: scale(1.2);
+}
+
+.color-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 8px rgba(255,255,255,0.3);
+}
+
+.color-custom {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--text2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  color: var(--text2);
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.color-custom:hover {
+  border-color: var(--text1);
+  color: var(--text1);
+}
+
+.color-custom input[type="color"] {
+  position: absolute;
+  inset: -4px;
+  width: 28px;
+  height: 28px;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ============================================
+   Chat Panel
+   ============================================ */
+.chat-card {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 100px);
+  max-height: 780px;
+  min-height: 500px;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-behavior: smooth;
+}
+
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 2px; }
+
+.chat-welcome {
+  text-align: center;
+  padding: 30px 20px;
+}
+
+.chat-welcome-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+}
+
+.chat-welcome h3 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.chat-welcome p {
+  color: var(--text2);
+  font-size: 0.82rem;
+  margin-bottom: 16px;
+}
+
+.chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.chat-suggestion {
+  padding: 6px 12px;
+  background: var(--bg2);
+  border: 1px solid var(--bg3);
+  border-radius: 20px;
+  font-size: 0.72rem;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-body);
+}
+
+.chat-suggestion:hover {
+  background: var(--bg3);
+  color: var(--text1);
+  border-color: var(--accent);
+}
+
+.msg {
+  display: flex;
+  gap: 10px;
+  max-width: 90%;
+}
+
+.msg.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.msg.assistant .msg-avatar {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+}
+
+.msg.user .msg-avatar {
+  background: var(--bg3);
+}
+
+.msg-bubble {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.msg.assistant .msg-bubble {
+  background: var(--bg2);
+  border: 1px solid var(--bg3);
+  color: var(--text1);
+  border-top-left-radius: 4px;
+}
+
+.msg.user .msg-bubble {
+  background: var(--accent-dim);
+  color: #fff;
+  border-top-right-radius: 4px;
+}
+
+.msg-bubble p { margin: 0 0 8px; }
+.msg-bubble p:last-child { margin: 0; }
+.msg-bubble code {
+  background: rgba(0,0,0,0.3);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.82em;
+}
+.msg-bubble strong { font-weight: 600; color: var(--text0); }
+
+.typing-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 14px;
+  background: var(--accent);
+  border-radius: 1px;
+  margin-left: 2px;
+  animation: blink 0.8s step-end infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Chat input */
+.chat-input-area {
+  padding: 12px 16px;
+  border-top: 1px solid var(--bg3);
+  display: flex;
+  gap: 8px;
+  align-items: end;
+}
+
+.chat-input {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--bg3);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: var(--text0);
+  font-family: var(--font-body);
+  font-size: 0.84rem;
+  resize: none;
+  min-height: 42px;
+  max-height: 120px;
+  outline: none;
+  transition: border-color var(--transition);
+  line-height: 1.4;
+}
+
+.chat-input:focus {
+  border-color: var(--accent);
+}
+
+.chat-input::placeholder {
+  color: var(--text2);
+}
+
+.chat-send {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.chat-send:hover { background: var(--accent-dim); transform: scale(1.05); }
+.chat-send:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.chat-send svg {
+  width: 18px;
+  height: 18px;
+  fill: #fff;
+}
+
+/* ============================================
+   Toast Notifications
+   ============================================ */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  padding: 12px 18px;
+  background: var(--bg2);
+  border: 1px solid var(--bg3);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  color: var(--text1);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  backdrop-filter: blur(12px);
+  animation: toast-in 0.3s ease;
+  max-width: 340px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast.success { border-left: 3px solid var(--accent2); }
+.toast.error { border-left: 3px solid var(--danger); }
+.toast.info { border-left: 3px solid var(--accent); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 960px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+  .col-right {
+    position: static;
+  }
+  .chat-card {
+    height: 500px;
+  }
+}
+
+@media (max-width: 640px) {
+  .app { padding: 12px 14px 30px; }
+  .themes-grid { grid-template-columns: repeat(2, 1fr); }
+  .devices-grid { grid-template-columns: 1fr; }
+  .header { flex-wrap: wrap; gap: 10px; }
+  .chat-card { min-height: 400px; height: 450px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ========== Header ========== -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M9 18h6M10 22h4M12 2v1M4.2 4.2l.7.7M1 12h1m17 0h1m-3.5-6.1l.7-.7M12 6a6 6 0 016 6c0 2.2-1.2 4.2-3 5.2V18a1 1 0 01-1 1h-4a1 1 0 01-1-1v-.8C7.2 16.2 6 14.2 6 12a6 6 0 016-6z"/></svg>
+      </div>
+      <div>
+        <h1>Light Assistant</h1>
+        <p class="logo-sub">Powered by <strong>AWS</strong></p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="header-pill">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Online</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========== Main Grid ========== -->
+  <div class="main-grid">
+    <!-- Left Column: Scene + Controls -->
+    <div class="col-left">
+
+      <!-- Living Room Scene -->
+      <div class="scene-wrapper">
+        <svg class="scene-svg" viewBox="0 0 900 580" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="glow-sm"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="glow-md"><feGaussianBlur stdDeviation="8" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="glow-lg"><feGaussianBlur stdDeviation="18" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="glow-xl"><feGaussianBlur stdDeviation="30" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <!-- Soft inner shadow for depth -->
+            <filter id="inset-shadow" x="-10%" y="-10%" width="120%" height="120%">
+              <feComponentTransfer in="SourceAlpha"><feFuncA type="table" tableValues="1 0"/></feComponentTransfer>
+              <feGaussianBlur stdDeviation="6"/>
+              <feOffset dx="0" dy="3" result="shadow"/>
+              <feFlood flood-color="#000" flood-opacity="0.3"/>
+              <feComposite in2="shadow" operator="in"/>
+              <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#1c1c32"/>
+              <stop offset="60%" stop-color="#141426"/>
+              <stop offset="100%" stop-color="#10101e"/>
+            </linearGradient>
+            <linearGradient id="floorGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#0d0d18"/>
+              <stop offset="100%" stop-color="#080810"/>
+            </linearGradient>
+            <linearGradient id="ceilingGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#1e1e36"/>
+              <stop offset="100%" stop-color="#1a1a30"/>
+            </linearGradient>
+            <!-- Wood texture pattern for floor -->
+            <pattern id="woodPattern" x="0" y="0" width="80" height="12" patternUnits="userSpaceOnUse">
+              <rect width="80" height="12" fill="#0d0d18"/>
+              <line x1="0" y1="6" x2="80" y2="6" stroke="#151520" stroke-width="0.5" opacity="0.4"/>
+              <line x1="0" y1="11.5" x2="80" y2="11.5" stroke="#0a0a14" stroke-width="0.5" opacity="0.6"/>
+            </pattern>
+          </defs>
+
+          <!-- Room structure -->
+          <!-- Ceiling molding -->
+          <rect x="0" y="0" width="900" height="20" fill="url(#ceilingGrad)"/>
+          <line x1="0" y1="20" x2="900" y2="20" stroke="#2a2a44" stroke-width="1"/>
+          <!-- Wall -->
+          <rect x="0" y="20" width="900" height="425" fill="url(#wallGrad)"/>
+          <!-- Baseboard -->
+          <rect x="0" y="438" width="900" height="7" fill="#1a1a2c" stroke="#252540" stroke-width="0.5"/>
+          <!-- Floor -->
+          <rect x="0" y="445" width="900" height="135" fill="url(#woodPattern)"/>
+          <!-- Floor reflection -->
+          <rect x="0" y="445" width="900" height="35" fill="url(#wallGrad)" opacity="0.15"/>
+
+          <!-- ===== Furniture ===== -->
+
+          <!-- TV console / media cabinet -->
+          <rect x="300" y="385" width="290" height="52" rx="5" fill="#181828" stroke="#252540" stroke-width="1"/>
+          <rect x="306" y="391" width="132" height="40" rx="3" fill="#12121f" stroke="#202035" stroke-width="0.5"/>
+          <rect x="448" y="391" width="132" height="40" rx="3" fill="#12121f" stroke="#202035" stroke-width="0.5"/>
+          <!-- Cabinet handles -->
+          <line x1="355" y1="411" x2="390" y2="411" stroke="#3a3a55" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="500" y1="411" x2="535" y2="411" stroke="#3a3a55" stroke-width="1.5" stroke-linecap="round"/>
+
+          <!-- TV screen (wall-mounted, centered) -->
+          <rect x="320" y="150" width="250" height="158" rx="4" fill="#060610" stroke="#2a2a45" stroke-width="2"/>
+          <rect x="327" y="157" width="236" height="144" rx="2" fill="#0a0a16"/>
+          <!-- TV mount bracket -->
+          <rect x="432" y="308" width="26" height="77" rx="2" fill="#181828"/>
+
+          <!-- Sofa -->
+          <path d="M130 468 Q130 448 150 448 L415 448 Q435 448 435 468 L435 510 Q435 520 425 520 L140 520 Q130 520 130 510Z" fill="#1c1c30" stroke="#2a2a42" stroke-width="1"/>
+          <!-- Sofa back cushions -->
+          <path d="M142 448 Q142 412 165 408 L278 408 Q284 408 284 448" fill="#202036" stroke="#2a2a42" stroke-width="0.8"/>
+          <path d="M284 448 Q284 412 302 408 L405 408 Q425 412 425 448" fill="#1e1e34" stroke="#2a2a42" stroke-width="0.8"/>
+          <!-- Sofa arms -->
+          <path d="M116 420 Q116 408 128 408 L140 408 Q146 408 146 420 L146 512 Q146 520 138 520 L126 520 Q116 520 116 512Z" fill="#222238" stroke="#2a2a42" stroke-width="1"/>
+          <path d="M425 420 Q425 408 435 408 L448 408 Q454 408 454 420 L454 512 Q454 520 446 520 L433 520 Q425 520 425 512Z" fill="#222238" stroke="#2a2a42" stroke-width="1"/>
+          <!-- Seat cushion line -->
+          <line x1="148" y1="468" x2="423" y2="468" stroke="#282840" stroke-width="0.8"/>
+          <!-- Throw pillows -->
+          <ellipse cx="172" cy="438" rx="20" ry="15" fill="#252540" stroke="#2e2e4a" stroke-width="0.8" transform="rotate(-10 172 438)"/>
+          <ellipse cx="400" cy="436" rx="18" ry="14" fill="#282845" stroke="#2e2e4a" stroke-width="0.8" transform="rotate(8 400 436)"/>
+
+          <!-- Coffee table in front of sofa -->
+          <rect x="210" y="530" width="150" height="30" rx="4" fill="#161624" stroke="#222238" stroke-width="1"/>
+          <!-- Coffee table legs -->
+          <line x1="220" y1="560" x2="220" y2="572" stroke="#222238" stroke-width="2"/>
+          <line x1="350" y1="560" x2="350" y2="572" stroke="#222238" stroke-width="2"/>
+
+          <!-- Side table (right) -->
+          <rect x="710" y="440" width="60" height="48" rx="3" fill="#181828" stroke="#252540" stroke-width="1"/>
+          <line x1="718" y1="488" x2="718" y2="520" stroke="#252540" stroke-width="2"/>
+          <line x1="762" y1="488" x2="762" y2="520" stroke="#252540" stroke-width="2"/>
+          <!-- Plant on side table -->
+          <ellipse cx="740" cy="438" rx="11" ry="5" fill="#1a2a1a" stroke="#2a3a2a" stroke-width="0.8"/>
+          <path d="M736 438 Q737 426 740 422 Q743 426 744 438" fill="#1a3a1a" stroke="none"/>
+          <rect x="735" y="438" width="10" height="9" rx="2" fill="#2a2236" stroke="#352a40" stroke-width="0.5"/>
+
+          <!-- Floor lamp (far right) -->
+          <line x1="840" y1="220" x2="840" y2="440" stroke="#2a2a42" stroke-width="2.5"/>
+          <ellipse cx="840" cy="215" rx="20" ry="11" fill="#1e1e32" stroke="#2a2a42" stroke-width="1"/>
+          <circle cx="840" cy="444" r="11" fill="#1a1a2c" stroke="#252540" stroke-width="1"/>
+
+          <!-- Rug on floor -->
+          <ellipse cx="310" cy="540" rx="180" ry="28" fill="#141422" stroke="#1e1e34" stroke-width="1" opacity="0.6"/>
+
+          <!-- Wall art frame (between tree and TV) -->
+          <rect x="225" y="80" width="55" height="65" rx="2" fill="none" stroke="#252540" stroke-width="1.2"/>
+          <line x1="236" y1="102" x2="269" y2="102" stroke="#1e1e34" stroke-width="0.8"/>
+          <line x1="240" y1="112" x2="265" y2="112" stroke="#1e1e34" stroke-width="0.8"/>
+          <line x1="236" y1="122" x2="269" y2="122" stroke="#1e1e34" stroke-width="0.8"/>
+
+          <!-- ===== LIGHT: TV Backlight T2 ===== -->
+          <g id="svg-tv-backlight">
+            <ellipse class="ambient-spill" id="tvb-ambient" cx="445" cy="230" rx="200" ry="140" fill="#8b5cf6" opacity="0"/>
+            <rect class="light-glow" id="tvb-glow-top" x="317" y="144" width="256" height="5" rx="2.5" fill="#8b5cf6" opacity="0" filter="url(#glow-md)"/>
+            <rect class="light-glow" id="tvb-glow-bottom" x="317" y="310" width="256" height="5" rx="2.5" fill="#8b5cf6" opacity="0" filter="url(#glow-md)"/>
+            <rect class="light-glow" id="tvb-glow-left" x="314" y="147" width="5" height="165" rx="2.5" fill="#8b5cf6" opacity="0" filter="url(#glow-md)"/>
+            <rect class="light-glow" id="tvb-glow-right" x="571" y="147" width="5" height="165" rx="2.5" fill="#8b5cf6" opacity="0" filter="url(#glow-md)"/>
+          </g>
+
+          <!-- ===== LIGHT: Hexa Light Panels (Christmas Tree Pyramid) ===== -->
+          <g id="svg-hexa-panels" transform="translate(28, 55) scale(1.2)">
+            <ellipse class="ambient-spill" id="hexa-ambient" cx="82" cy="80" rx="130" ry="120" fill="#06d6a0" opacity="0"/>
+            <!-- Decorative star above tree tip -->
+            <polygon class="hexa-star" points="82,-15 85,-6 93,-6 87,0 89,8 82,4 75,8 77,0 71,-6 79,-6" fill="#3a3a55" stroke="none" opacity="0.5"/>
+            <!-- Row 0: tip (1 hex) -->
+            <polygon class="light-body hexa-cell" id="hexa-0" points="82,4 95.9,12 95.9,28 82,36 68.1,28 68.1,12" fill="#1e1e32" stroke="#2a2a42" stroke-width="1.2"/>
+            <!-- Row 1: (2 hexes) -->
+            <polygon class="light-body hexa-cell" id="hexa-1" points="62,40 75.9,48 75.9,64 62,72 48.1,64 48.1,48" fill="#1e1e32" stroke="#2a2a42" stroke-width="1.2"/>
+            <polygon class="light-body hexa-cell" id="hexa-2" points="102,40 115.9,48 115.9,64 102,72 88.1,64 88.1,48" fill="#1e1e32" stroke="#2a2a42" stroke-width="1.2"/>
+            <!-- Row 2: (3 hexes) -->
+            <polygon class="light-body hexa-cell" id="hexa-3" points="42,76 55.9,84 55.9,100 42,108 28.1,100 28.1,84" fill="#1e1e32" stroke="#2a2a42" stroke-width="1.2"/>
+            <polygon class="light-body hexa-cell" id="hexa-4" points="82,76 95.9,84 95.9,100 82,108 68.1,100 68.1,84" fill="#1e1e32" stroke="#2a2a42" stroke-width="1.2"/>
+            <polygon class="light-body hexa-cell" id="hexa-5" points="122,76 135.9,84 135.9,100 122,108 108.1,100 108.1,84" fill="#1e1e32" stroke="#2a2a42" stroke-width="1.2"/>
+            <!-- Row 3: base (4 hexes) -->
+            <polygon class="light-body hexa-cell" id="hexa-6" points="22,112 35.9,120 35.9,136 22,144 8.1,136 8.1,120" fill="#1e1e32" stroke="#2a2a42" stroke-width="1.2"/>
+            <polygon class="light-body hexa-cell" id="hexa-7" points="62,112 75.9,120 75.9,136 62,144 48.1,136 48.1,120" fill="#1e1e32" stroke="#2a2a42" stroke-width="1.2"/>
+            <polygon class="light-body hexa-cell" id="hexa-8" points="102,112 115.9,120 115.9,136 102,144 88.1,136 88.1,120" fill="#1e1e32" stroke="#2a2a42" stroke-width="1.2"/>
+            <polygon class="light-body hexa-cell" id="hexa-9" points="142,112 155.9,120 155.9,136 142,144 128.1,136 128.1,120" fill="#1e1e32" stroke="#2a2a42" stroke-width="1.2"/>
+            <!-- Tree trunk -->
+            <rect class="light-body hexa-cell" id="hexa-trunk" x="72" y="146" width="20" height="22" rx="2" fill="#1e1e32" stroke="#2a2a42" stroke-width="1.2"/>
+          </g>
+
+          <!-- ===== LIGHT: Neon Rope Light 2 (Deer Head) ===== -->
+          <g id="svg-neon-rope" transform="translate(640, 32) scale(1.15)">
+            <ellipse class="ambient-spill" id="rope-ambient" cx="98" cy="105" rx="125" ry="115" fill="#f59e0b" opacity="0"/>
+            <path class="light-body" id="rope-body"
+              d="M98,188
+                 C82,176 68,156 63,132
+                 C59,114 58,100 62,88
+                 L50,72 L64,84
+                 L98,76
+                 L132,84 L146,72 L134,88
+                 C138,100 137,114 133,132
+                 C128,156 114,176 98,188 Z
+                 M64,84
+                 C58,66 44,50 32,42
+                 C22,36 14,26 18,14
+                 C22,4 34,0 42,8
+                 C48,14 44,24 50,20
+                 C56,14 58,4 66,2
+                 C76,0 78,10 74,22
+                 C68,36 64,56 62,76
+                 M132,84
+                 C138,66 152,50 164,42
+                 C174,36 182,26 178,14
+                 C174,4 162,0 154,8
+                 C148,14 152,24 146,20
+                 C140,14 138,4 130,2
+                 C120,0 118,10 122,22
+                 C128,36 132,56 134,76"
+              fill="none" stroke="#2a2a42" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="84" cy="118" r="3" fill="#2a2a42" class="light-body" id="rope-eye-l"/>
+            <circle cx="112" cy="118" r="3" fill="#2a2a42" class="light-body" id="rope-eye-r"/>
+            <ellipse cx="98" cy="152" rx="5" ry="3.5" fill="none" stroke="#2a2a42" stroke-width="1.8" class="light-body" id="rope-nose"/>
+            <path class="light-glow" id="rope-glow"
+              d="M98,188
+                 C82,176 68,156 63,132
+                 C59,114 58,100 62,88
+                 L50,72 L64,84
+                 L98,76
+                 L132,84 L146,72 L134,88
+                 C138,100 137,114 133,132
+                 C128,156 114,176 98,188 Z
+                 M64,84
+                 C58,66 44,50 32,42
+                 C22,36 14,26 18,14
+                 C22,4 34,0 42,8
+                 C48,14 44,24 50,20
+                 C56,14 58,4 66,2
+                 C76,0 78,10 74,22
+                 C68,36 64,56 62,76
+                 M132,84
+                 C138,66 152,50 164,42
+                 C174,36 182,26 178,14
+                 C174,4 162,0 154,8
+                 C148,14 152,24 146,20
+                 C140,14 138,4 130,2
+                 C120,0 118,10 122,22
+                 C128,36 132,56 134,76"
+              fill="none" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0" filter="url(#glow-sm)"/>
+          </g>
+
+          <!-- ===== LIGHT: RGBIC Y Lights (Starburst) ===== -->
+          <g id="svg-y-lights" transform="translate(680, 270) scale(1.1)">
+            <!-- Ambient spill -->
+            <ellipse class="ambient-spill" id="ylight-ambient" cx="70" cy="70" rx="100" ry="90" fill="#ef4444" opacity="0"/>
+            <!--
+              Starburst arrangement: 7 Y-panels radiating from center
+              Center panel + 6 panels at 60 degree intervals pointing outward
+            -->
+            <!-- Center Y panel (upward) -->
+            <g class="light-body y-panel" id="ypanel-0" transform="translate(55,40)">
+              <line x1="15" y1="0" x2="15" y2="22" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="22" x2="3" y2="36" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="22" x2="27" y2="36" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+            </g>
+            <!-- Top Y panel -->
+            <g class="light-body y-panel" id="ypanel-1" transform="translate(55,0) rotate(0 15 20)">
+              <line x1="15" y1="-5" x2="15" y2="15" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="15" x2="3" y2="28" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="15" x2="27" y2="28" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+            </g>
+            <!-- Top-right Y panel -->
+            <g class="light-body y-panel" id="ypanel-2" transform="translate(92,22) rotate(60 15 18)">
+              <line x1="15" y1="-2" x2="15" y2="18" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="18" x2="3" y2="32" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="18" x2="27" y2="32" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+            </g>
+            <!-- Bottom-right Y panel -->
+            <g class="light-body y-panel" id="ypanel-3" transform="translate(92,68) rotate(120 15 18)">
+              <line x1="15" y1="-2" x2="15" y2="18" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="18" x2="3" y2="32" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="18" x2="27" y2="32" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+            </g>
+            <!-- Bottom Y panel -->
+            <g class="light-body y-panel" id="ypanel-4" transform="translate(55,88) rotate(180 15 18)">
+              <line x1="15" y1="-2" x2="15" y2="18" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="18" x2="3" y2="32" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="18" x2="27" y2="32" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+            </g>
+            <!-- Bottom-left Y panel -->
+            <g class="light-body y-panel" id="ypanel-5" transform="translate(18,68) rotate(240 15 18)">
+              <line x1="15" y1="-2" x2="15" y2="18" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="18" x2="3" y2="32" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="18" x2="27" y2="32" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+            </g>
+            <!-- Top-left Y panel -->
+            <g class="light-body y-panel" id="ypanel-6" transform="translate(18,22) rotate(300 15 18)">
+              <line x1="15" y1="-2" x2="15" y2="18" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="18" x2="3" y2="32" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+              <line x1="15" y1="18" x2="27" y2="32" stroke="#2a2a42" stroke-width="7" stroke-linecap="round"/>
+            </g>
+          </g>
+
+          <!-- Ceiling trim -->
+          <rect x="0" y="0" width="900" height="3" fill="#2a2a44" opacity="0.6"/>
+        </svg>
+
+        <!-- Scene labels -->
+        <div class="scene-labels">
+          <div class="scene-label" data-device="hexa" style="top:7%;left:3%">Hexa Panels</div>
+          <div class="scene-label" data-device="tvb" style="top:24%;left:40%">TV Backlight T2</div>
+          <div class="scene-label" data-device="rope" style="top:3%;left:69%">Neon Rope 2</div>
+          <div class="scene-label" data-device="ylight" style="top:48%;left:76%">Y Lights</div>
+        </div>
+      </div>
+
+      <!-- Theme Presets -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Scene Themes</span>
+          <button id="themeOff" style="background:var(--bg3);border:1px solid var(--bg4);border-radius:6px;padding:4px 10px;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font-body);transition:all var(--transition)">Reset</button>
+        </div>
+        <div class="card-body">
+          <div class="themes-grid" id="themesGrid"></div>
+        </div>
+      </div>
+
+      <!-- Device Controls -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Light Controls</span>
+          <span style="font-size:0.72rem;color:var(--text2)" id="devicesOnline">4 devices</span>
+        </div>
+        <div class="card-body">
+          <div class="devices-grid" id="devicesGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Chat -->
+    <div class="col-right">
+      <div class="card chat-card">
+        <div class="card-header">
+          <span class="card-title">AI Assistant</span>
+          <button id="chatClear" style="background:var(--bg3);border:1px solid var(--bg4);border-radius:6px;padding:4px 10px;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font-body);transition:all var(--transition)">Clear</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-welcome">
+            <div class="chat-welcome-icon">&#128161;</div>
+            <h3>Light Assistant</h3>
+            <p>Powered by AWS &mdash; Control your lights with natural language</p>
+            <div class="chat-suggestions" id="chatSuggestions">
+              <button class="chat-suggestion">Turn on all lights</button>
+              <button class="chat-suggestion">Set aurora theme</button>
+              <button class="chat-suggestion">Dim the living room</button>
+              <button class="chat-suggestion">Make it cozy and warm</button>
+              <button class="chat-suggestion">Party mode!</button>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input-area">
+          <textarea class="chat-input" id="chatInput" placeholder="Ask me to control your lights..." rows="1"></textarea>
+          <button class="chat-send" id="chatSend">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+/* ============================================
+   Utilities
+   ============================================ */
+const $ = (s, p) => (p || document).querySelector(s);
+const $$ = (s, p) => [...(p || document).querySelectorAll(s)];
+
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  $('#toastContainer').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(20px)'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+/* ============================================
+   Device & Theme Data
+   ============================================ */
+const DEVICES = [
+  { id: 'hexa',   name: 'Hexa Panels',      type: 'Glide Hexa Light Panels', icon: '\u2B21', defaultColor: '#06d6a0' },
+  { id: 'tvb',    name: 'TV Backlight T2',   type: 'Envisual TV Backlight',   icon: '\uD83D\uDCFA', defaultColor: '#8b5cf6' },
+  { id: 'rope',   name: 'Neon Rope 2',       type: 'Neon Rope Light 2',       icon: '\u2728', defaultColor: '#f59e0b' },
+  { id: 'ylight', name: 'Y Lights',          type: 'Glide RGBIC Y Lights',    icon: '\uD83D\uDD36', defaultColor: '#ef4444' },
+];
+
+const COLOR_PRESETS = [
+  '#ef4444', '#f59e0b', '#22c55e', '#06d6a0',
+  '#3b82f6', '#8b5cf6', '#ec4899', '#ffffff',
+];
+
+const THEMES = {
+  christmas: {
+    name: 'Christmas',
+    icon: '\uD83C\uDF84',
+    colors: ['#ef4444','#22c55e','#f59e0b'],
+    devices: {
+      hexa:   { color: '#22c55e', brightness: 90, anim: 'anim-twinkle' },
+      tvb:    { color: '#ef4444', brightness: 85, anim: 'anim-pulse' },
+      rope:   { color: '#f59e0b', brightness: 80, anim: 'anim-twinkle' },
+      ylight: { color: '#ef4444', brightness: 85, anim: 'anim-twinkle' },
+    }
+  },
+  halloween: {
+    name: 'Halloween',
+    icon: '\uD83C\uDF83',
+    colors: ['#f97316','#a855f7','#22c55e'],
+    devices: {
+      hexa:   { color: '#a855f7', brightness: 75, anim: 'anim-flicker' },
+      tvb:    { color: '#f97316', brightness: 80, anim: 'anim-flicker' },
+      rope:   { color: '#22c55e', brightness: 60, anim: 'anim-flicker' },
+      ylight: { color: '#f97316', brightness: 85, anim: 'anim-flicker' },
+    }
+  },
+  starry: {
+    name: 'Starry Sky',
+    icon: '\u2B50',
+    colors: ['#1e40af','#c084fc','#ffffff'],
+    devices: {
+      hexa:   { color: '#c084fc', brightness: 60, anim: 'anim-twinkle' },
+      tvb:    { color: '#1e40af', brightness: 70, anim: 'anim-pulse' },
+      rope:   { color: '#818cf8', brightness: 50, anim: 'anim-twinkle' },
+      ylight: { color: '#c084fc', brightness: 55, anim: 'anim-twinkle' },
+    }
+  },
+  bonfire: {
+    name: 'Bonfire',
+    icon: '\uD83D\uDD25',
+    colors: ['#ef4444','#f97316','#eab308'],
+    devices: {
+      hexa:   { color: '#f97316', brightness: 85, anim: 'anim-flicker' },
+      tvb:    { color: '#ef4444', brightness: 80, anim: 'anim-flicker' },
+      rope:   { color: '#eab308', brightness: 90, anim: 'anim-flicker' },
+      ylight: { color: '#f97316', brightness: 85, anim: 'anim-flicker' },
+    }
+  },
+  aurora: {
+    name: 'Aurora',
+    icon: '\uD83C\uDF0C',
+    colors: ['#06d6a0','#3b82f6','#c084fc'],
+    devices: {
+      hexa:   { color: '#06d6a0', brightness: 80, anim: 'anim-flow' },
+      tvb:    { color: '#3b82f6', brightness: 75, anim: 'anim-flow' },
+      rope:   { color: '#c084fc', brightness: 70, anim: 'anim-flow' },
+      ylight: { color: '#06d6a0', brightness: 75, anim: 'anim-flow' },
+    }
+  },
+  sunset: {
+    name: 'Sunset Glow',
+    icon: '\uD83C\uDF05',
+    colors: ['#f97316','#ec4899','#7c3aed'],
+    devices: {
+      hexa:   { color: '#ec4899', brightness: 80, anim: 'anim-pulse' },
+      tvb:    { color: '#f97316', brightness: 85, anim: 'anim-pulse' },
+      rope:   { color: '#f59e0b', brightness: 90, anim: 'anim-pulse' },
+      ylight: { color: '#7c3aed', brightness: 75, anim: 'anim-pulse' },
+    }
+  },
+};
+
+/* ============================================
+   State Management
+   ============================================ */
+const state = {
+  devices: {},
+  activeTheme: null,
+};
+
+// Initialize device states
+DEVICES.forEach(d => {
+  state.devices[d.id] = { on: false, brightness: 80, color: d.defaultColor };
+});
+
+function updateDeviceState(deviceId, changes) {
+  Object.assign(state.devices[deviceId], changes);
+  updateScene(deviceId);
+  updateDeviceCardUI(deviceId);
+  // Sync to backend via chat API
+  const dev = DEVICES.find(d => d.id === deviceId);
+  const parts = [];
+  if ('on' in changes) parts.push(changes.on ? 'turn on' : 'turn off');
+  if ('brightness' in changes) parts.push(`set brightness to ${changes.brightness}`);
+  if ('color' in changes) parts.push(`set color to ${changes.color}`);
+  const prompt = `${parts.join(' and ')} ${dev ? dev.name : deviceId}`;
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  }).catch(() => {});
+}
+
+async function fetchDeviceStates() {
+  try {
+    const resp = await fetch('/api/devices');
+    if (!resp.ok) return;
+    const { devices } = await resp.json();
+    devices.forEach(d => {
+      if (state.devices[d.id]) {
+        Object.assign(state.devices[d.id], d.state);
+        updateScene(d.id);
+        updateDeviceCardUI(d.id);
+      }
+    });
+  } catch (e) { /* backend not available, use local defaults */ }
+}
+
+function syncDevicesFromChat(devicesMap) {
+  if (!devicesMap) return;
+  for (const [devId, s] of Object.entries(devicesMap)) {
+    if (state.devices[devId]) {
+      Object.assign(state.devices[devId], s);
+      updateScene(devId);
+      updateDeviceCardUI(devId);
+    }
+  }
+  // Detect and sync active theme from device colors
+  detectAndSyncTheme();
+}
+
+function detectAndSyncTheme() {
+  let matched = null;
+  for (const [key, theme] of Object.entries(THEMES)) {
+    const allMatch = Object.entries(theme.devices).every(([devId, cfg]) => {
+      const ds = state.devices[devId];
+      return ds && ds.on && ds.color.toLowerCase() === cfg.color.toLowerCase();
+    });
+    if (allMatch) { matched = key; break; }
+  }
+  state.activeTheme = matched;
+  $$('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === matched);
+  });
+  if (matched) {
+    applyThemeAnimations(matched);
+  } else {
+    clearSceneAnimations();
+  }
+}
+
+/* ============================================
+   Scene Rendering
+   ============================================ */
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function updateScene(deviceId) {
+  const d = state.devices[deviceId];
+  const on = d.on;
+  const color = d.color;
+  const br = d.brightness / 100;
+  const opacity = on ? br : 0;
+  const ambientOpacity = on ? br * 0.15 : 0;
+
+  if (deviceId === 'tvb') {
+    ['#tvb-glow-top','#tvb-glow-bottom','#tvb-glow-left','#tvb-glow-right'].forEach(sel => {
+      const el = $(sel);
+      if (el) { el.setAttribute('fill', color); el.setAttribute('opacity', opacity * 0.9); }
+    });
+    const amb = $('#tvb-ambient');
+    if (amb) { amb.setAttribute('fill', color); amb.setAttribute('opacity', ambientOpacity); }
+  }
+
+  if (deviceId === 'hexa') {
+    // Light up hex cells: top to bottom cascade (tree effect)
+    for (let i = 0; i < 10; i++) {
+      const cell = $(`#hexa-${i}`);
+      if (cell) {
+        cell.setAttribute('fill', on ? color : '#1e1e32');
+        cell.setAttribute('stroke', on ? hexToRgba(color, 0.4) : '#2a2a42');
+        cell.style.opacity = on ? (0.6 + br * 0.4) : 1;
+        cell.style.filter = on ? `drop-shadow(0 0 6px ${hexToRgba(color, 0.3)})` : 'none';
+        cell.style.transitionDelay = `${i * 0.05}s`;
+      }
+    }
+    // Light up the trunk
+    const trunk = $('#hexa-trunk');
+    if (trunk) {
+      trunk.setAttribute('fill', on ? color : '#1e1e32');
+      trunk.setAttribute('stroke', on ? hexToRgba(color, 0.4) : '#2a2a42');
+      trunk.style.opacity = on ? (0.5 + br * 0.3) : 1;
+      trunk.style.filter = on ? `drop-shadow(0 0 4px ${hexToRgba(color, 0.2)})` : 'none';
+    }
+    // Light up the star on top of tree
+    const star = $('.hexa-star');
+    if (star) {
+      star.setAttribute('fill', on ? color : '#3a3a55');
+      star.setAttribute('opacity', on ? 1 : 0.5);
+      star.style.filter = on ? `drop-shadow(0 0 8px ${color})` : 'none';
+      star.style.transition = 'all 0.6s ease';
+    }
+    const amb = $('#hexa-ambient');
+    if (amb) { amb.setAttribute('fill', color); amb.setAttribute('opacity', ambientOpacity); }
+  }
+
+  if (deviceId === 'rope') {
+    const glow = $('#rope-glow');
+    const body = $('#rope-body');
+    if (glow) { glow.setAttribute('stroke', color); glow.setAttribute('opacity', opacity); }
+    if (body) {
+      body.setAttribute('stroke', on ? color : '#2a2a42');
+      body.style.opacity = on ? (0.5 + br * 0.5) : 1;
+      body.style.filter = on ? `drop-shadow(0 0 3px ${color})` : 'none';
+    }
+    // Eyes and nose
+    ['#rope-eye-l','#rope-eye-r'].forEach(sel => {
+      const el = $(sel);
+      if (el) { el.setAttribute('fill', on ? color : '#2a2a42'); el.style.filter = on ? `drop-shadow(0 0 4px ${color})` : 'none'; }
+    });
+    const nose = $('#rope-nose');
+    if (nose) { nose.setAttribute('stroke', on ? color : '#2a2a42'); nose.style.filter = on ? `drop-shadow(0 0 3px ${color})` : 'none'; }
+    const amb = $('#rope-ambient');
+    if (amb) { amb.setAttribute('fill', color); amb.setAttribute('opacity', on ? br * 0.12 : 0); }
+  }
+
+  if (deviceId === 'ylight') {
+    for (let i = 0; i < 7; i++) {
+      const panel = $(`#ypanel-${i}`);
+      if (panel) {
+        const lines = panel.querySelectorAll('line');
+        lines.forEach(l => {
+          l.setAttribute('stroke', on ? color : '#2a2a42');
+          l.style.opacity = on ? (0.7 + br * 0.3) : 1;
+          l.style.filter = on ? `drop-shadow(0 0 5px ${color})` : 'none';
+          l.style.transition = 'all 0.6s ease';
+          l.style.transitionDelay = `${i * 0.05}s`;
+        });
+      }
+    }
+    const amb = $('#ylight-ambient');
+    if (amb) { amb.setAttribute('fill', color); amb.setAttribute('opacity', on ? br * 0.12 : 0); }
+  }
+}
+
+function clearSceneAnimations() {
+  $$('.anim-twinkle, .anim-flicker, .anim-flow, .anim-pulse').forEach(el => {
+    el.classList.remove('anim-twinkle','anim-flicker','anim-flow','anim-pulse');
+  });
+}
+
+function applyThemeAnimations(themeKey) {
+  clearSceneAnimations();
+  const theme = THEMES[themeKey];
+  if (!theme) return;
+
+  Object.entries(theme.devices).forEach(([devId, cfg]) => {
+    if (!cfg.anim) return;
+    if (devId === 'tvb') {
+      ['#tvb-glow-top','#tvb-glow-bottom','#tvb-glow-left','#tvb-glow-right'].forEach(sel => {
+        const el = $(sel);
+        if (el) el.classList.add(cfg.anim);
+      });
+    }
+    if (devId === 'hexa') {
+      for (let i = 0; i < 10; i++) {
+        const el = $(`#hexa-${i}`);
+        if (el) el.classList.add(cfg.anim);
+      }
+    }
+    if (devId === 'rope') {
+      const el = $('#rope-glow');
+      if (el) el.classList.add(cfg.anim);
+    }
+    if (devId === 'ylight') {
+      for (let i = 0; i < 7; i++) {
+        const el = $(`#ypanel-${i}`);
+        if (el) el.classList.add(cfg.anim);
+      }
+    }
+  });
+}
+
+/* ============================================
+   Theme Controls
+   ============================================ */
+function renderThemes() {
+  const grid = $('#themesGrid');
+  grid.innerHTML = '';
+  Object.entries(THEMES).forEach(([key, theme]) => {
+    const btn = document.createElement('button');
+    btn.className = 'theme-btn';
+    btn.dataset.theme = key;
+    btn.innerHTML = `
+      <span class="theme-icon">${theme.icon}</span>
+      <span class="theme-dots">${theme.colors.map(c => `<span class="theme-dot" style="background:${c}"></span>`).join('')}</span>
+      <span class="theme-name">${theme.name}</span>
+    `;
+    btn.onclick = () => applyTheme(key);
+    grid.appendChild(btn);
+  });
+}
+
+function applyTheme(key) {
+  const theme = THEMES[key];
+  if (!theme) return;
+
+  state.activeTheme = key;
+
+  // Update all devices locally
+  Object.entries(theme.devices).forEach(([devId, cfg]) => {
+    state.devices[devId].on = true;
+    state.devices[devId].color = cfg.color;
+    state.devices[devId].brightness = cfg.brightness;
+    updateScene(devId);
+    updateDeviceCardUI(devId);
+  });
+
+  // Sync theme to backend via chat
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: `apply ${key} theme` }),
+  }).catch(() => {});
+
+  applyThemeAnimations(key);
+
+  // Update active state on buttons
+  $$('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === key);
+  });
+
+  toast(`Theme: ${theme.name}`, 'success');
+}
+
+function resetTheme() {
+  state.activeTheme = null;
+  clearSceneAnimations();
+  DEVICES.forEach(d => {
+    state.devices[d.id].on = false;
+    updateScene(d.id);
+    updateDeviceCardUI(d.id);
+  });
+  $$('.theme-btn').forEach(btn => btn.classList.remove('active'));
+  toast('Lights reset', 'info');
+}
+
+/* ============================================
+   Device Control Cards
+   ============================================ */
+function renderDeviceCards() {
+  const grid = $('#devicesGrid');
+  grid.innerHTML = '';
+  DEVICES.forEach(d => {
+    const ds = state.devices[d.id];
+    const card = document.createElement('div');
+    card.className = 'device-card';
+    card.id = `card-${d.id}`;
+    card.dataset.on = ds.on;
+    card.style.setProperty('--device-color', ds.color);
+    card.style.setProperty('--device-on', ds.on ? '1' : '0');
+
+    card.innerHTML = `
+      <div class="device-card-head">
+        <div class="device-info">
+          <div class="device-icon">${d.icon}</div>
+          <div>
+            <div class="device-name">${d.name}</div>
+            <div class="device-type">${d.type}</div>
+          </div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" ${ds.on ? 'checked' : ''} data-device="${d.id}" data-action="power">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="brightness-row">
+        <span class="brightness-label">&#9728;</span>
+        <input type="range" class="brightness-slider" min="1" max="100" value="${ds.brightness}" data-device="${d.id}" data-action="brightness">
+        <span class="brightness-val" id="brval-${d.id}">${ds.brightness}%</span>
+      </div>
+      <div class="color-row">
+        ${COLOR_PRESETS.map(c => `<div class="color-swatch${ds.color === c ? ' active' : ''}" style="background:${c}" data-device="${d.id}" data-color="${c}"></div>`).join('')}
+        <div class="color-custom" title="Custom color">
+          +
+          <input type="color" value="${ds.color}" data-device="${d.id}" data-action="custom-color">
+        </div>
+      </div>
+    `;
+
+    grid.appendChild(card);
+  });
+
+  // Event delegation
+  grid.addEventListener('change', e => {
+    const t = e.target;
+    const devId = t.dataset.device;
+    if (!devId) return;
+
+    if (t.dataset.action === 'power') {
+      updateDeviceState(devId, { on: t.checked });
+      if (state.activeTheme) { state.activeTheme = null; $$('.theme-btn').forEach(b => b.classList.remove('active')); clearSceneAnimations(); }
+    }
+    if (t.dataset.action === 'custom-color') {
+      updateDeviceState(devId, { color: t.value });
+      updateSwatchActive(devId, t.value);
+    }
+  });
+
+  grid.addEventListener('input', e => {
+    const t = e.target;
+    const devId = t.dataset.device;
+    if (!devId) return;
+
+    if (t.dataset.action === 'brightness') {
+      const val = parseInt(t.value);
+      state.devices[devId].brightness = val;
+      $(`#brval-${devId}`).textContent = val + '%';
+      updateScene(devId);
+    }
+  });
+
+  // Sync brightness to backend on release (not every input)
+  grid.addEventListener('change', e => {
+    const t = e.target;
+    if (t.dataset.action === 'brightness' && t.dataset.device) {
+      fetch(`/api/devices/${t.dataset.device}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brightness: parseInt(t.value) }),
+      }).catch(() => {});
+    }
+  });
+
+  grid.addEventListener('click', e => {
+    const swatch = e.target.closest('.color-swatch');
+    if (!swatch) return;
+    const devId = swatch.dataset.device;
+    const color = swatch.dataset.color;
+    updateDeviceState(devId, { color });
+    updateSwatchActive(devId, color);
+    if (state.activeTheme) { state.activeTheme = null; $$('.theme-btn').forEach(b => b.classList.remove('active')); clearSceneAnimations(); }
+  });
+}
+
+function updateDeviceCardUI(deviceId) {
+  const card = $(`#card-${deviceId}`);
+  if (!card) return;
+  const ds = state.devices[deviceId];
+
+  card.dataset.on = ds.on;
+  card.style.setProperty('--device-color', ds.color);
+  card.style.setProperty('--device-on', ds.on ? '1' : '0');
+
+  const toggle = $(`input[data-device="${deviceId}"][data-action="power"]`, card);
+  if (toggle) toggle.checked = ds.on;
+
+  const slider = $(`input[data-device="${deviceId}"][data-action="brightness"]`, card);
+  if (slider) slider.value = ds.brightness;
+
+  const brVal = $(`#brval-${deviceId}`);
+  if (brVal) brVal.textContent = ds.brightness + '%';
+
+  // Update slider gradient
+  if (slider) {
+    slider.style.background = `linear-gradient(to right, var(--bg4), ${ds.color})`;
+  }
+
+  updateSwatchActive(deviceId, ds.color);
+}
+
+function updateSwatchActive(deviceId, color) {
+  const card = $(`#card-${deviceId}`);
+  if (!card) return;
+  $$('.color-swatch', card).forEach(s => {
+    s.classList.toggle('active', s.dataset.color === color);
+  });
+}
+
+/* ============================================
+   Scene Label Click
+   ============================================ */
+$$('.scene-label').forEach(label => {
+  label.addEventListener('click', () => {
+    const devId = label.dataset.device;
+    const card = $(`#card-${devId}`);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.style.boxShadow = '0 0 0 2px var(--accent)';
+      setTimeout(() => card.style.boxShadow = '', 1500);
+    }
+  });
+});
+
+/* ============================================
+   Chat System
+   ============================================ */
+let chatBusy = false;
+const chatSessionId = 'session-' + Math.random().toString(36).slice(2) + '-' + Date.now();
+
+function addMessage(role, content) {
+  // Remove welcome if still present
+  const welcome = $('.chat-welcome');
+  if (welcome) welcome.remove();
+
+  const msgs = $('#chatMessages');
+  const msg = document.createElement('div');
+  msg.className = `msg ${role}`;
+  msg.innerHTML = `
+    <div class="msg-avatar">${role === 'assistant' ? '\uD83D\uDCA1' : '\uD83D\uDC64'}</div>
+    <div class="msg-bubble">${renderMarkdown(content)}</div>
+  `;
+  msgs.appendChild(msg);
+  msgs.scrollTop = msgs.scrollHeight;
+  return msg;
+}
+
+function addStreamingMessage() {
+  const welcome = $('.chat-welcome');
+  if (welcome) welcome.remove();
+
+  const msgs = $('#chatMessages');
+  const msg = document.createElement('div');
+  msg.className = 'msg assistant';
+  msg.innerHTML = `
+    <div class="msg-avatar">\uD83D\uDCA1</div>
+    <div class="msg-bubble"><span class="typing-cursor"></span></div>
+  `;
+  msgs.appendChild(msg);
+  msgs.scrollTop = msgs.scrollHeight;
+  return msg;
+}
+
+function renderMarkdown(text) {
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/\n/g, '<br>');
+}
+
+async function sendChat(message) {
+  if (chatBusy || !message.trim()) return;
+  chatBusy = true;
+  $('#chatSend').disabled = true;
+
+  addMessage('user', message);
+
+  const msgEl = addStreamingMessage();
+  const bubble = $('.msg-bubble', msgEl);
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: message, session_id: chatSessionId }),
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const data = await resp.json();
+    const cursor = $('.typing-cursor', bubble);
+    if (cursor) cursor.remove();
+
+    bubble.innerHTML = renderMarkdown(data.response || data.error || 'No response');
+
+    // 智能同步：对比前后端状态，只更新真正发生变化的设备
+    if (data.deviceState) {
+      for (const [devId, backendState] of Object.entries(data.deviceState)) {
+        if (!state.devices[devId]) continue;
+        const local = state.devices[devId];
+        // 检查这个设备的状态是否真的和本地不同
+        const changed = (local.on !== backendState.on) ||
+                        (local.brightness !== backendState.brightness) ||
+                        (local.color !== backendState.color);
+        if (changed) {
+          Object.assign(state.devices[devId], backendState);
+          updateScene(devId);
+          updateDeviceCardUI(devId);
+        }
+      }
+      detectAndSyncTheme();
+    }
+  } catch (err) {
+    const cursor = $('.typing-cursor', bubble);
+    if (cursor) cursor.remove();
+    bubble.innerHTML = renderMarkdown(`Connection error: ${err.message}`);
+  } finally {
+    chatBusy = false;
+    $('#chatSend').disabled = false;
+  }
+}
+
+// Chat input handlers
+$('#chatInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    const val = e.target.value.trim();
+    if (val) { sendChat(val); e.target.value = ''; e.target.style.height = 'auto'; }
+  }
+});
+
+$('#chatSend').addEventListener('click', () => {
+  const input = $('#chatInput');
+  const val = input.value.trim();
+  if (val) { sendChat(val); input.value = ''; input.style.height = 'auto'; }
+});
+
+// Auto-resize textarea
+$('#chatInput').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+// Suggestion clicks
+$('#chatSuggestions').addEventListener('click', e => {
+  const btn = e.target.closest('.chat-suggestion');
+  if (btn) sendChat(btn.textContent);
+});
+
+// Clear chat
+$('#chatClear').addEventListener('click', () => {
+  const msgs = $('#chatMessages');
+  msgs.innerHTML = `
+    <div class="chat-welcome">
+      <div class="chat-welcome-icon">&#128161;</div>
+      <h3>Light Assistant</h3>
+      <p>Control your lights with natural language</p>
+      <div class="chat-suggestions" id="chatSuggestions">
+        <button class="chat-suggestion">Turn on all lights</button>
+        <button class="chat-suggestion">Set aurora theme</button>
+        <button class="chat-suggestion">Dim the living room</button>
+        <button class="chat-suggestion">Make it cozy and warm</button>
+        <button class="chat-suggestion">Party mode!</button>
+      </div>
+    </div>
+  `;
+  // Re-bind suggestion clicks
+  $('#chatSuggestions').addEventListener('click', e => {
+    const btn = e.target.closest('.chat-suggestion');
+    if (btn) sendChat(btn.textContent);
+  });
+});
+
+// Reset theme button
+$('#themeOff').addEventListener('click', resetTheme);
+
+/* ============================================
+   Boot
+   ============================================ */
+async function init() {
+  renderThemes();
+  renderDeviceCards();
+
+  // Initialize all scenes as off
+  DEVICES.forEach(d => updateScene(d.id));
+
+  // 页面加载时展示 aurora 主题（后端初始状态已同步为 aurora）
+  setTimeout(() => applyTheme('aurora'), 800);
+}
+
+init();
+</script>
+</body>
+</html>

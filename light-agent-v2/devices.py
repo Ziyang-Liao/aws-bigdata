@@ -21,10 +21,10 @@ DEVICE_REGISTRY = {
 }
 
 DEFAULT_STATES = {
-    "hexa":   {"on": False, "brightness": 80, "color": "#06d6a0", "online": True},
-    "tvb":    {"on": False, "brightness": 75, "color": "#8b5cf6", "online": True},
-    "rope":   {"on": False, "brightness": 80, "color": "#f59e0b", "online": True},
-    "ylight": {"on": False, "brightness": 70, "color": "#ef4444", "online": True},
+    "hexa":   {"on": True, "brightness": 80, "color": "#06d6a0", "online": True},
+    "tvb":    {"on": True, "brightness": 75, "color": "#3b82f6", "online": True},
+    "rope":   {"on": True, "brightness": 70, "color": "#c084fc", "online": True},
+    "ylight": {"on": True, "brightness": 75, "color": "#06d6a0", "online": True},
 }
 
 # Bilingual nickname → device_id

@@ -1,10 +1,10 @@
 """
 Light Agent V2 — AgentCore Runtime 标准入口
 
-使用 AgentCore 全部核心能力：
+AgentCore 能力：
   - BedrockAgentCoreApp（标准化运行时入口）
   - AgentSkills（原生 Skill 机制）
-  - AgentCore Memory（跨会话记忆）
+  - AgentCore Memory（跨会话持久化记忆）
   - Observability（OTel 自动链路追踪）
 """
 
@@ -30,75 +30,88 @@ SYSTEM_PROMPT = (
     "4. 没有指定具体设备时，默认操作所有设备\n"
     "5. 操作后简洁告知结果，设备离线时如实告知\n"
     "6. 只处理灯光相关请求，其他请求礼貌拒绝\n"
-    "7. 利用记忆了解用户偏好，如用户之前喜欢暖色调，推荐时优先暖色"
+    "7. 利用记忆了解用户偏好，如用户之前喜欢暖色调，推荐时优先暖色\n"
+    "8. 在没有确定用户真实意图之前，不要执行任何操作，先询问确认"
 )
 
-# ── Skills ─────────────────────────────────────────────────────
+# ── Skills（单个实例加载所有 skill 目录）─────────────────────
 
-scene_skill = AgentSkills(skills="./skills/scene-mode")
-discovery_skill = AgentSkills(skills="./skills/device-discovery")
+all_skills = AgentSkills(skills="./skills")
 
 # ── Model ──────────────────────────────────────────────────────
 
 model = BedrockModel(model_id=MODEL_ID, region_name=REGION)
 
-# ── Memory (AgentCore Memory — 跨会话记忆) ─────────────────────
+# ── Memory（AgentCore Memory — 跨会话持久化）───────────────────
 
-session_manager = None
-
-if MEMORY_ID:
+def create_session_manager(session_id: str, actor_id: str):
+    """为每个请求创建 session manager，支持跨会话持久化记忆。"""
+    if not MEMORY_ID:
+        return None
     try:
-        from bedrock_agentcore.memory.integrations.strands.config import (
-            AgentCoreMemoryConfig,
-        )
-        from bedrock_agentcore.memory.integrations.strands.session_manager import (
-            AgentCoreMemorySessionManager,
-        )
+        from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
+        from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
 
-        agentcore_memory_config = AgentCoreMemoryConfig(
+        config = AgentCoreMemoryConfig(
             memory_id=MEMORY_ID,
-            session_id="light-agent-default",
-            actor_id="light-agent-user",
+            session_id=session_id,
+            actor_id=actor_id,
         )
-        session_manager = AgentCoreMemorySessionManager(
-            agentcore_memory_config=agentcore_memory_config,
+        return AgentCoreMemorySessionManager(
+            agentcore_memory_config=config,
             region_name=REGION,
         )
-        print(f"[Memory] AgentCore Memory enabled: {MEMORY_ID}")
     except Exception as e:
-        print(f"[Memory] Failed to init AgentCore Memory: {e}, falling back to in-memory")
+        print(f"[Memory] Init failed: {e}")
+        return None
 
-# ── Agent ──────────────────────────────────────────────────────
 
-agent_kwargs = dict(
-    model=model,
-    tools=[control_light, query_lights, discover_devices, resolve_device_name],
-    plugins=[scene_skill, discovery_skill],
-    system_prompt=SYSTEM_PROMPT,
-)
+# ── Agent 工厂（每个 session 创建带 Memory 的 Agent）──────────
 
-if session_manager:
-    agent_kwargs["session_manager"] = session_manager
+def create_agent(session_id: str = "default", actor_id: str = "user"):
+    sm = create_session_manager(session_id, actor_id)
+    kwargs = dict(
+        model=model,
+        tools=[control_light, query_lights, discover_devices, resolve_device_name],
+        plugins=[all_skills],
+        system_prompt=SYSTEM_PROMPT,
+    )
+    if sm:
+        kwargs["session_manager"] = sm
+        print(f"[Agent] Created with Memory (session={session_id}, actor={actor_id})")
+    else:
+        print(f"[Agent] Created without Memory (session={session_id})")
+    return sm, Agent(**kwargs)
 
-agent = Agent(**agent_kwargs)
 
-# ── BedrockAgentCoreApp（标准化运行时入口）─────────────────────
+# ── BedrockAgentCoreApp ───────────────────────────────────────
 
 app = BedrockAgentCoreApp()
 
 
 @app.entrypoint
 def handle(payload: dict):
-    """AgentCore Runtime 标准入口"""
     prompt = payload.get("prompt", "")
     if not prompt:
         return {"error": "missing prompt"}
 
-    result = agent(prompt)
-    return {
-        "response": str(result),
-        "deviceState": {**device_states},
-    }
+    session_id = payload.get("session_id", "default-session-xxxxxxxxxxxxxxxx")
+    actor_id = payload.get("actor_id", "web-user")
+
+    sm, agent = create_agent(session_id, actor_id)
+    try:
+        result = agent(prompt)
+        return {
+            "response": str(result),
+            "deviceState": {**device_states},
+        }
+    finally:
+        # 确保 Memory buffer 被 flush
+        if sm:
+            try:
+                sm.close()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
