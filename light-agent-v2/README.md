@@ -11,7 +11,7 @@
 用户浏览器 (外网)
   │ HTTPS
   ▼
-CloudFront (d1aul19ygxzvce.cloudfront.net)
+CloudFront (<your-cloudfront-domain>.cloudfront.net)
   │ HTTPS
   ▼
 API Gateway HTTP API (内网)
@@ -345,12 +345,12 @@ aws cloudfront create-distribution \
 
 | 资源 | 标识 |
 |------|------|
-| CloudFront | `https://d1aul19ygxzvce.cloudfront.net` |
-| API Gateway | `https://1ohptvx6ig.execute-api.us-east-1.amazonaws.com` |
+| CloudFront | `https://<your-cloudfront-domain>.cloudfront.net` |
+| API Gateway | `https://<your-api-id>.execute-api.us-east-1.amazonaws.com` |
 | Lambda | `light-agent-proxy` |
-| AgentCore Runtime | `light_agent_v2-eW6loJ6rV1` |
-| AgentCore Memory | `LightAgentMemory-lAz0o9COak` (SEMANTIC + USER_PREFERENCE) |
-| ECR | `light-agent-v2:v4` |
+| AgentCore Runtime | `<your-runtime-id>` |
+| AgentCore Memory | `<your-memory-id>` (SEMANTIC + USER_PREFERENCE) |
+| ECR | `light-agent-v2:latest` |
 | IAM Roles | `BedrockAgentCoreRuntimeRole`, `light-agent-proxy-role` |
 
 ---
