@@ -2,7 +2,21 @@
 
 基于 Strands Agents SDK (Python) 的标准 Tool + Skill 架构，实现完整的多设备智能灯光控制。
 
-这是 `light-assistant`（TypeScript/MCP Gateway 架构）的标准化重写版本，使用 Strands SDK 原生的 `@tool` + `AgentSkills` 机制。
+这是 `light-assistant`（TypeScript/MCP Gateway 架构）的标准化重写版本，**全面使用 AgentCore 核心能力**。
+
+---
+
+## AgentCore 能力使用清单
+
+| AgentCore 能力 | 状态 | 实现方式 |
+|---|---|---|
+| **Runtime** (BedrockAgentCoreApp) | ✅ | `@app.entrypoint` 标准入口，自动处理 /ping + /invocations |
+| **Tool** (@tool) | ✅ | 4 个 `@tool` 装饰器函数，SDK 自动提取 schema |
+| **Skill** (AgentSkills) | ✅ | 2 个 `SKILL.md` 知识包，按需加载 |
+| **Memory** (AgentCore Memory) | ✅ | 跨会话记忆，记住用户偏好（如喜欢暖色调） |
+| **Observability** (OTel) | ✅ | `opentelemetry-instrument` 自动链路追踪 → CloudWatch |
+| **Identity/Credential** | — | 当前无外部 API 调用，无需凭证管理 |
+| **MCP Gateway** | — | Tool 在本地执行，无需远程路由 |
 
 ---
 
@@ -13,10 +27,11 @@
 | 语言 | TypeScript | Python |
 | Tool 定义 | JSON Schema + Lambda | `@tool` 装饰器（SDK 自动提取） |
 | Skill 机制 | ❌ 未使用（仅 Tool 分组） | ✅ 原生 `AgentSkills` + `SKILL.md` |
+| Memory | ❌ 无（进程内存，重启丢失） | ✅ AgentCore Memory（跨会话持久化） |
+| Observability | ❌ 无 | ✅ OTel 自动 instrumentation |
+| Runtime 入口 | 自定义 Express | ✅ `BedrockAgentCoreApp` 标准入口 |
 | 部署组件 | 7+ AWS 服务 | 1 个容器 |
 | 代码量 | 数千行 | ~300 行 |
-| 场景能力 | 6 个硬编码主题 | 6 预设 + 8 种动态氛围（Skill 知识包） |
-| 设备昵称 | 硬编码在 System Prompt | Skill 按需加载 + Tool 解析 |
 
 ---
 
@@ -26,36 +41,38 @@
 用户: "帮我切换到圣诞主题"
        │
        ▼
-┌──────────────────────────────────────────────────┐
-│  Strands Agent (Claude Haiku 4.5)                │
-│                                                  │
-│  ┌─ Skill: scene-mode ────────────────────────┐  │
-│  │ SKILL.md: 6 预设主题 + 8 动态氛围配色表     │  │  ← 按需加载
-│  └────────────────────────────────────────────┘  │
-│  ┌─ Skill: device-discovery ──────────────────┐  │
-│  │ SKILL.md: 设备列表 + 中英文昵称映射表       │  │  ← 按需加载
-│  └────────────────────────────────────────────┘  │
-│           │ 指导                                 │
-│           ▼                                      │
-│  ┌─ Tools ────────────────────────────────────┐  │
-│  │ control_light    — 控制开关/亮度/颜色       │  │  ← 始终可用
-│  │ query_lights     — 查询设备状态             │  │
-│  │ discover_devices — 发现可用设备             │  │
-│  │ resolve_device_name — 昵称解析              │  │
-│  └────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  BedrockAgentCoreApp                                     │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │  Strands Agent (Claude Haiku 4.5)                  │  │
+│  │                                                    │  │
+│  │  ┌─ AgentCore Memory ──────────────────────────┐   │  │
+│  │  │ 短期记忆: 会话上下文                          │   │  │  ← 自动管理
+│  │  │ 长期记忆: 用户偏好 (SEMANTIC/USER_PREFERENCE) │   │  │
+│  │  └─────────────────────────────────────────────┘   │  │
+│  │                                                    │  │
+│  │  ┌─ Skill: scene-mode ────────────────────────┐    │  │
+│  │  │ 6 预设主题 + 8 动态氛围配色表               │    │  │  ← 按需加载
+│  │  └────────────────────────────────────────────┘    │  │
+│  │  ┌─ Skill: device-discovery ──────────────────┐    │  │
+│  │  │ 设备列表 + 中英文昵称映射表                 │    │  │  ← 按需加载
+│  │  └────────────────────────────────────────────┘    │  │
+│  │           │ 指导                                   │  │
+│  │           ▼                                        │  │
+│  │  ┌─ Tools ────────────────────────────────────┐    │  │
+│  │  │ control_light    — 控制开关/亮度/颜色       │    │  │  ← 始终可用
+│  │  │ query_lights     — 查询设备状态             │    │  │
+│  │  │ discover_devices — 发现可用设备             │    │  │
+│  │  │ resolve_device_name — 昵称解析              │    │  │
+│  │  └────────────────────────────────────────────┘    │  │
+│  └────────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌─ Observability (OTel) ────────────────────────────┐   │
+│  │ 自动追踪: Agent 推理 → Tool 调用 → 模型请求       │   │  ← 自动 instrument
+│  │ 输出到: CloudWatch GenAI Observability Dashboard   │   │
+│  └────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────┘
 ```
-
-### Tool vs Skill 分工
-
-| 类型 | 名称 | 作用 | 何时生效 |
-|------|------|------|---------|
-| **Tool** | `control_light` | 执行灯光控制操作 | 始终可用 |
-| **Tool** | `query_lights` | 查询设备状态 | 始终可用 |
-| **Tool** | `discover_devices` | 列出可用设备 | 始终可用 |
-| **Tool** | `resolve_device_name` | 昵称→设备ID | 始终可用 |
-| **Skill** | `scene-mode` | 主题/氛围的配色知识 | 提到"主题/场景/模式"时按需加载 |
-| **Skill** | `device-discovery` | 设备列表和昵称映射知识 | 提到设备昵称或询问设备时按需加载 |
 
 ---
 
@@ -63,7 +80,7 @@
 
 ```
 light-agent-v2/
-├── server.py                       # AgentCore HTTP 服务 (/ping + /invocations)
+├── server.py                       # BedrockAgentCoreApp 标准入口 + Memory 集成
 ├── demo.py                         # 本地测试 Demo
 ├── tools.py                        # 4 个 @tool 定义
 ├── devices.py                      # 设备模型 + 状态管理 + 昵称映射
@@ -72,8 +89,8 @@ light-agent-v2/
 │   │   └── SKILL.md                # 场景模式知识包 (6 预设 + 8 动态氛围)
 │   └── device-discovery/
 │       └── SKILL.md                # 设备发现知识包 (设备列表 + 昵称表)
-├── Dockerfile                      # arm64 容器镜像
-├── requirements.txt
+├── Dockerfile                      # arm64 容器 + OTel auto-instrumentation
+├── requirements.txt                # 含 bedrock-agentcore + otel 依赖
 └── README.md
 ```
 
@@ -85,30 +102,59 @@ light-agent-v2/
 
 ```bash
 pip install -r requirements.txt
-
-# 配置 AWS 凭证
 export AWS_REGION=us-east-1
 
-# 运行 Demo
+# 运行 Demo（不需要 Memory）
 python demo.py
 
-# 或启动 HTTP 服务
+# 或启动 AgentCore 标准服务
 python server.py
 ```
 
-### Docker
+### 启用 AgentCore Memory
 
 ```bash
-docker build -t light-agent-v2 .
-docker run -p 8080:8080 \
-  -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_REGION=us-east-1 \
-  light-agent-v2
+# 1. 创建 Memory 资源
+pip install bedrock-agentcore
+python -c "
+from bedrock_agentcore.memory import MemoryClient
+client = MemoryClient(region_name='us-east-1')
+mem = client.create_memory_and_wait(
+    name='LightAgentMemory',
+    description='Light agent user preferences and session history',
+    strategies=[
+        {'userPreferenceMemoryStrategy': {
+            'name': 'PreferenceLearner',
+            'namespaceTemplates': ['/preferences/{actorId}/']
+        }},
+        {'semanticMemoryStrategy': {
+            'name': 'FactExtractor',
+            'namespaceTemplates': ['/facts/{actorId}/']
+        }}
+    ]
+)
+print('Memory ID:', mem['id'])
+"
 
-# 测试
-curl http://localhost:8080/ping
-echo -n "应用极光主题" | curl -X POST http://localhost:8080/invocations \
-  -H "Content-Type: application/octet-stream" --data-binary @-
+# 2. 设置环境变量后启动
+export AGENTCORE_MEMORY_ID=<上面输出的 Memory ID>
+python server.py
 ```
+
+### 启用 Observability
+
+```bash
+# 本地带 OTel 追踪运行
+export AGENT_OBSERVABILITY_ENABLED=true
+export OTEL_PYTHON_DISTRO=aws_distro
+export OTEL_PYTHON_CONFIGURATOR=aws_configurator
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+export OTEL_RESOURCE_ATTRIBUTES=service.name=light-agent-v2
+
+opentelemetry-instrument python server.py
+```
+
+部署到 AgentCore Runtime 后，OTel 自动启用（Dockerfile CMD 已配置 `opentelemetry-instrument`）。
 
 ### 部署到 AgentCore
 
@@ -117,10 +163,8 @@ export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 export AWS_REGION=us-east-1
 export ECR_REPO=light-agent-v2
 
-# 创建 ECR 仓库
+# 创建 ECR + 构建推送
 aws ecr create-repository --repository-name $ECR_REPO --region $AWS_REGION
-
-# 构建并推送
 aws ecr get-login-password --region $AWS_REGION | \
   docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
@@ -128,7 +172,7 @@ docker buildx build --platform linux/arm64 \
   --tag $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:latest \
   --push .
 
-# 创建 Runtime（复用已有的 BedrockAgentCoreRuntimeRole）
+# 创建 Runtime
 export ROLE_ARN=$(aws iam get-role --role-name BedrockAgentCoreRuntimeRole --query 'Role.Arn' --output text)
 export IMAGE_URI=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:latest
 
@@ -143,15 +187,52 @@ aws bedrock-agentcore-control create-agent-runtime \
 
 ---
 
-## 测试用例
+## AgentCore 能力详解
 
-| 类型 | 输入 | 预期行为 |
-|------|------|---------|
-| Tool | "打开所有灯" | `control_light(["all"], on=true)` |
-| Tool | "把亮度调到60" | `control_light(["all"], brightness=60)` |
-| Tool | "查看灯的状态" | `query_lights(["all"])` |
-| Skill+Tool | "把电视背光调成蓝色" | Skill 解析昵称 → `resolve_device_name("电视背光")` → `control_light(["tvb"], color="#3b82f6")` |
-| Skill+Tool | "应用圣诞主题" | Skill 加载配色表 → 4 次 `control_light` |
-| Skill+Tool | "我想要电影之夜的氛围" | Skill 匹配 movie mood → 4 次 `control_light` |
-| Tool | "我有哪些设备？" | `discover_devices()` |
-| Tool | "Turn off all lights" | `control_light(["all"], on=false)` — 英文回复 |
+### 1. BedrockAgentCoreApp（标准化入口）
+
+替代手写 Flask，自动处理 AgentCore 服务契约：
+
+```python
+from bedrock_agentcore.runtime import BedrockAgentCoreApp
+
+app = BedrockAgentCoreApp()
+
+@app.entrypoint
+def handle(payload: dict):
+    result = agent(payload["prompt"])
+    return {"response": str(result)}
+
+app.run()  # 自动注册 /ping + /invocations
+```
+
+### 2. AgentCore Memory（跨会话记忆）
+
+通过环境变量 `AGENTCORE_MEMORY_ID` 启用，Agent 自动获得：
+- **短期记忆**：同一会话内的上下文保持
+- **长期记忆**：跨会话的用户偏好学习（如 "用户喜欢暖色调"）
+
+```python
+from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
+
+agent = Agent(
+    session_manager=session_manager,  # 注入 Memory
+    ...
+)
+```
+
+### 3. Observability（OTel 链路追踪）
+
+Dockerfile 使用 `opentelemetry-instrument` 启动，自动追踪：
+- Agent 推理过程
+- 每次 Tool 调用的耗时和参数
+- Bedrock 模型请求的 token 用量
+- 全链路 trace 可在 CloudWatch GenAI Observability Dashboard 查看
+
+### 4. AgentSkills（原生 Skill）
+
+两个 `SKILL.md` 知识包，仅在 Agent 判断需要时加载到上下文：
+- `scene-mode`：6 预设主题 + 8 种动态氛围配色
+- `device-discovery`：设备列表 + 双语昵称映射
+
+不使用时不占 token，比硬编码在 System Prompt 中更高效。

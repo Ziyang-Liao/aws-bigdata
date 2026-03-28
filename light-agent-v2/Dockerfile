@@ -4,4 +4,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 EXPOSE 8080
-CMD ["python", "server.py"]
+# BedrockAgentCoreApp 自动处理 /ping + /invocations
+# OTel 自动 instrumentation 通过 opentelemetry-instrument 启动
+CMD ["opentelemetry-instrument", "python", "server.py"]

@@ -7,6 +7,7 @@ Light Agent V2 — 本地 Demo
   - Skill 设备发现：昵称解析
 """
 
+import json
 from strands import Agent, AgentSkills
 from strands.models.bedrock import BedrockModel
 from tools import control_light, query_lights, discover_devices, resolve_device_name
@@ -59,5 +60,3 @@ for label, user_input in test_cases:
     result = agent(user_input)
     print(f"💡 设备状态: {json.dumps(device_states, ensure_ascii=False)[:200]}")
     print("=" * 55)
-
-import json

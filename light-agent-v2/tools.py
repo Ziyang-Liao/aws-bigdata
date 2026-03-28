@@ -1,7 +1,7 @@
 """
 Light Agent V2 — Tool 定义
 
-6 个 Tool，使用 @tool 装饰器，Strands SDK 自动提取 schema。
+4 个 Tool，使用 @tool 装饰器，Strands SDK 自动提取 schema。
 """
 
 import json
