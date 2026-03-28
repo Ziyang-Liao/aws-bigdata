@@ -31,11 +31,11 @@
 - [ ] 登录页面 + 布局框架
 
 ### 1.3 数据源管理模块
-- [ ] 数据源 CRUD API（DynamoDB）
-- [ ] 数据源配置页面（表单：host/port/user/password/database）
-- [ ] 连通性测试（调 Glue Connection API 或 DMS test-connection）
-- [ ] 数据源列表页面
-- [ ] 支持的数据源类型：MySQL, PostgreSQL, Oracle, SQL Server
+- [x] 数据源 CRUD API（DynamoDB）
+- [x] 数据源配置页面（表单：host/port/user/password/database）
+- [x] 连通性测试（调 Glue Connection API）
+- [x] 数据源列表页面
+- [x] 支持的数据源类型：MySQL, PostgreSQL, Oracle, SQL Server
 
 ## Phase 2: 数据同步模块（第 3-4 周）
 
