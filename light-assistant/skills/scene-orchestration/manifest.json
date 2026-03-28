@@ -1,8 +1,0 @@
-{
-  "name": "scene-orchestration",
-  "version": "1.0.0",
-  "description": "Apply preset themes or dynamically generate lighting scenes from natural language descriptions",
-  "tools": ["apply_theme", "create_scene"],
-  "schemaFile": "schema.json",
-  "lambdaHandler": "lambda/scene-orchestration/index.ts"
-}

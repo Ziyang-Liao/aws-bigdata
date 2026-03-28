@@ -1,8 +1,0 @@
-{
-  "name": "device-discovery",
-  "version": "1.0.0",
-  "description": "Discover available devices and resolve user-friendly names/nicknames to device IDs (bilingual)",
-  "tools": ["discover_devices", "resolve_device_name"],
-  "schemaFile": "schema.json",
-  "lambdaHandler": "lambda/device-discovery/index.ts"
-}

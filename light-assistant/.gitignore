@@ -1,9 +1,0 @@
-data/
-dist/
-*.js.map
-
-# Temporary test scripts
-test-*.mjs
-test-*.py
-test-*.ts
-!src/**/*.ts
