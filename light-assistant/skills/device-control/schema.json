@@ -1,0 +1,44 @@
+[
+  {
+    "name": "control_light",
+    "description": "Control one or more smart lights. Can set power (on/off), brightness (0-100), and color (hex #rrggbb). Specify device_ids as a list. Use [\"all\"] to target all devices. All fields except device_ids are optional — only include what needs to change.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "device_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of device IDs to control. Use [\"all\"] for all devices."
+        },
+        "on": {
+          "type": "boolean",
+          "description": "Power state: true=on, false=off"
+        },
+        "brightness": {
+          "type": "integer",
+          "description": "Brightness level 0-100"
+        },
+        "color": {
+          "type": "string",
+          "description": "Color as hex string, e.g. #ef4444"
+        }
+      },
+      "required": ["device_ids"]
+    }
+  },
+  {
+    "name": "query_lights",
+    "description": "Query the current status of smart lights. Returns power state, brightness, color, and online status. Specify device_ids as a list. Use [\"all\"] to query all devices.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "device_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of device IDs to query. Use [\"all\"] for all devices."
+        }
+      },
+      "required": ["device_ids"]
+    }
+  }
+]

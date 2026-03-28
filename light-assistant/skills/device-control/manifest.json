@@ -1,0 +1,8 @@
+{
+  "name": "device-control",
+  "version": "1.0.0",
+  "description": "Control and query smart light devices — power, brightness, color",
+  "tools": ["control_light", "query_lights"],
+  "schemaFile": "schema.json",
+  "lambdaHandler": "lambda/device-control/index.ts"
+}

@@ -1,0 +1,30 @@
+[
+  {
+    "name": "discover_devices",
+    "description": "Discover all available smart devices, their capabilities, and online status. Returns device registry with IDs, names, models, types, and supported features. Use this to learn what devices are available before controlling them.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "filter": {
+          "type": "string",
+          "enum": ["all", "online", "offline"],
+          "description": "Filter devices by status. Default: all"
+        }
+      }
+    }
+  },
+  {
+    "name": "resolve_device_name",
+    "description": "Resolve a user-friendly device name or nickname (in any language) to the actual device ID. Supports Chinese and English nicknames. Example: '电视背光' → 'tvb', 'hex panels' → 'hexa'.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "User-provided device name or nickname in any language"
+        }
+      },
+      "required": ["name"]
+    }
+  }
+]

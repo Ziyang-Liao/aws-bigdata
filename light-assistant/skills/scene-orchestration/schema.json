@@ -1,0 +1,38 @@
+[
+  {
+    "name": "apply_theme",
+    "description": "Apply a lighting theme preset. Each theme configures all lights with specific colors and brightness. Available themes: christmas, halloween, starry, bonfire, aurora, sunset.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "theme_id": {
+          "type": "string",
+          "description": "Theme ID: christmas, halloween, starry, bonfire, aurora, sunset"
+        }
+      },
+      "required": ["theme_id"]
+    }
+  },
+  {
+    "name": "create_scene",
+    "description": "Dynamically create a lighting scene from a natural language description. The system will generate appropriate colors and brightness for all devices based on the mood/atmosphere described. Example: 'romantic dinner', 'focus work mode', 'movie night'.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Natural language description of the desired atmosphere or scene"
+        },
+        "brightness_range": {
+          "type": "object",
+          "properties": {
+            "min": { "type": "integer", "description": "Minimum brightness 0-100" },
+            "max": { "type": "integer", "description": "Maximum brightness 0-100" }
+          },
+          "description": "Optional brightness constraints"
+        }
+      },
+      "required": ["description"]
+    }
+  }
+]
