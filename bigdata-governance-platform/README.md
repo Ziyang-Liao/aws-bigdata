@@ -32,6 +32,34 @@
 | 任务监控 | 运行状态、日志、告警 | CloudWatch + Glue/Airflow API |
 | 数据治理 | 血缘(列级)、数据目录、数据地图、数据质量 | OpenMetadata |
 | 用户管理 | 认证、RBAC 权限 | Cognito |
+| 权限管控 | 字段级数据权限、角色管理 | Lake Formation + Cognito Groups |
+| 审批流 | 数据源上线/任务发布/SQL执行/权限申请审批 | DynamoDB + SNS |
+| 操作审计 | 全操作记录、查询、导出 | DynamoDB |
+
+## 权限管控体系
+
+```
+平台层（RBAC）
+├── Admin       - 全部权限 + 用户管理 + 审批
+├── Developer   - 创建/编辑任务，生产发布需审批
+├── Analyst     - 只读查询 + 数据目录浏览
+└── Viewer      - 只读监控大盘
+
+数据层（字段级，Lake Formation）
+├── 库级别     - 授权可访问的数据库
+├── 表级别     - 授权可访问的表
+├── 列级别     - 授权可访问的字段（敏感字段过滤）
+└── 敏感脱敏   - Lake Formation Tag + 列掩码
+
+流程层（审批）
+├── 数据源上线       → Admin 审批
+├── 同步任务发布生产  → Admin 审批
+├── 生产 SQL 执行    → Admin 审批
+└── 数据权限申请     → 数据 Owner 审批
+
+审计层
+└── 全操作记录（谁/何时/做了什么）→ DynamoDB + 可导出
+```
 
 ## 技术栈
 
