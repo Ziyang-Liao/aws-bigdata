@@ -101,9 +101,41 @@
 - [ ] 单任务日志查看（Glue Job Logs / Airflow Task Logs）
 - [ ] 告警通知配置（SNS → 邮件/钉钉/企业微信 Webhook）
 
-## Phase 5: 数据治理 - OpenMetadata 集成（第 8-9 周）
+## Phase 5: 权限管控（第 8-9 周）
 
-### 5.1 OpenMetadata 部署
+### 5.1 平台 RBAC
+- [ ] Cognito Groups 创建（Admin / Developer / Analyst / Viewer）
+- [ ] 中间件：API 路由权限校验（基于角色）
+- [ ] 前端：按角色控制菜单/按钮显隐
+- [ ] 用户管理页面（列表、角色分配）
+
+### 5.2 数据层权限（字段级别）
+- [ ] Lake Formation 集成（CDK 配置）
+- [ ] 数据权限配置页面（选用户 → 选库/表/列 → 授权/撤权）
+- [ ] 调 Lake Formation API（grant-permissions / revoke-permissions）
+- [ ] 权限查询页面（查看某用户可访问的库/表/列）
+- [ ] 敏感字段标记（结合 OpenMetadata 标签 + Lake Formation Tag）
+
+### 5.3 审批流
+- [ ] 审批记录 CRUD API（DynamoDB bgp-approvals 表）
+- [ ] 审批列表页面（待审批 / 已审批 / 我发起的）
+- [ ] 审批详情 + 通过/驳回操作
+- [ ] 审批触发点集成：
+  - 数据源上线 → 触发审批
+  - 同步任务发布生产 → 触发审批
+  - 生产 SQL 执行 → 触发审批
+  - 数据权限申请 → 触发审批
+- [ ] 审批通知（SNS → 邮件/钉钉 Webhook）
+
+### 5.4 操作审计
+- [ ] 审计日志中间件（自动记录所有 API 操作）
+- [ ] 审计日志存储（DynamoDB bgp-audit-logs 表）
+- [ ] 审计日志查询页面（按用户/时间/操作类型筛选）
+- [ ] 审计日志导出（CSV）
+
+## Phase 6: 数据治理 - OpenMetadata 集成（第 10-11 周）
+
+### 6.1 OpenMetadata 部署
 - [ ] ECS Fargate 部署 OpenMetadata
 - [ ] 配置 Ingestion Connectors：
   - MySQL Connector（采集源库元数据）
@@ -112,14 +144,14 @@
   - Airflow Connector（采集 DAG 执行血缘）
   - S3 Connector（采集 S3 数据资产）
 
-### 5.2 平台集成
+### 6.2 平台集成
 - [ ] 数据治理入口页面（iframe 嵌入 OpenMetadata UI）
 - [ ] 数据目录搜索（调 OpenMetadata API，在平台内展示）
 - [ ] 血缘图展示（调 OpenMetadata Lineage API）
 - [ ] 数据地图（按业务域/主题域组织数据资产）
 - [ ] SSO 打通（Cognito → OpenMetadata 认证）
 
-## Phase 6: 完善 + 扩展（第 10+ 周）
+## Phase 7: 完善 + 扩展（第 12+ 周）
 
 - [ ] 更多数据源支持（MongoDB、DynamoDB、Kafka 等）
 - [ ] 数据质量规则配置（OpenMetadata Data Quality）
