@@ -5,19 +5,21 @@
 ## 架构总览
 
 ```
-                         ┌─────────────────────────┐
-                         │     CloudFront (CDN)     │
-                         └────────────┬────────────┘
-                                      │
-                         ┌────────────▼────────────┐
-                         │   Platform (ECS Fargate) │
-                         │   Next.js Full-Stack App │
-                         └────────────┬────────────┘
-                                      │
-          ┌───────────┬───────────┬───┴────┬──────────┬──────────┐
-          ▼           ▼           ▼        ▼          ▼          ▼
-       Cognito    DynamoDB     MWAA    Glue API   Redshift   OpenMetadata
-      (Auth)    (Metadata)  (Schedule) (ETL)    (Data API)  (ECS Fargate)
+                              ┌─────────────────────────┐
+                              │     CloudFront (CDN)     │
+                              └────────────┬────────────┘
+                                           │
+                              ┌────────────▼────────────┐
+                              │   Platform (ECS Fargate) │
+                              │   Next.js Full-Stack App │
+                              └────────────┬────────────┘
+                                           │
+    ┌──────────┬──────────┬───────┬────────┼────────┬───────────┬──────────────┐
+    ▼          ▼          ▼       ▼        ▼        ▼           ▼              ▼
+ Cognito   DynamoDB    MWAA   Glue API  Redshift  Lake        OpenMetadata   SNS
+ (Auth     (Metadata   (调度)  (ETL)    (Data     Formation   (ECS Fargate   (告警
+  +RBAC)   +审批+审计)          +DMS     API)     (字段级      血缘/目录      通知)
+                               +Zero-ETL          权限控制)    /质量)
 ```
 
 ## 核心功能模块
@@ -72,7 +74,9 @@
 | 后端 API | Next.js API Routes + boto3 (Lambda) | AWS SDK 调用 |
 | 元数据存储 | DynamoDB | 任务/数据源/调度配置 |
 | 用户认证 | Amazon Cognito | 免自建用户系统 |
+| 数据权限 | AWS Lake Formation | 库/表/列级权限控制 |
 | 数据治理 | OpenMetadata (ECS Fargate) | 血缘/目录/质量 |
+| 告警通知 | Amazon SNS | 邮件/钉钉/企业微信 Webhook |
 | 部署 | ECS Fargate + CloudFront | 容器化部署 |
 | IaC | CDK (TypeScript) | 基础设施即代码 |
 
@@ -93,4 +97,7 @@
 调度：MWAA (Airflow) 统一调度
 监控：CloudWatch + 平台聚合展示
 治理：OpenMetadata 自动采集血缘
+权限：Lake Formation 统一管控（库/表/列级），Redshift + S3 Tables 自动继承
+审批：数据源上线 / 任务发布 / SQL 执行 / 权限申请 → 审批通过后执行
+审计：全操作记录写入 DynamoDB，可查询可导出
 ```
