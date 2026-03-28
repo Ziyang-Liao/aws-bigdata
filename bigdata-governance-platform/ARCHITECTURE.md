@@ -1,25 +1,27 @@
 # 技术架构详细设计 / Technical Architecture
 
+> 最后更新：2026-03-28 | 已实现模块标注 ✅
+
 ## 1. 项目结构
 
 ```
 bigdata-governance-platform/
-├── README.md                    # 项目说明
-├── ROADMAP.md                   # 实施计划（进度追踪）
-├── ARCHITECTURE.md              # 本文件（技术架构）
-├── DEVLOG.md                    # 开发日志（每次开发记录）
+├── README.md                    # 项目说明 ✅
+├── ROADMAP.md                   # 实施计划（进度追踪）✅
+├── ARCHITECTURE.md              # 本文件（技术架构）✅
+├── DEVLOG.md                    # 开发日志（每次开发记录）✅
 │
-├── platform/                    # 主应用（Next.js）
+├── platform/                    # 主应用（Next.js）✅ 已初始化
 │   ├── package.json
-│   ├── next.config.js
+│   ├── next.config.mjs
 │   ├── tsconfig.json
 │   ├── src/
 │   │   ├── app/                 # App Router 页面
-│   │   │   ├── layout.tsx       # 全局布局（侧边栏 + 顶栏）
-│   │   │   ├── page.tsx         # 首页（Dashboard）
-│   │   │   ├── login/           # 登录页
-│   │   │   ├── datasources/     # 数据源管理
-│   │   │   │   ├── page.tsx     # 数据源列表
+│   │   │   ├── layout.tsx       # 全局布局 ✅
+│   │   │   ├── page.tsx         # 首页（Dashboard）✅
+│   │   │   ├── login/           # 登录页 ✅
+│   │   │   ├── datasources/     # 数据源管理 ✅
+│   │   │   │   ├── page.tsx     # 数据源列表 ✅
 │   │   │   │   └── [id]/        # 数据源详情/编辑
 │   │   │   ├── sync/            # 数据同步
 │   │   │   │   ├── page.tsx     # 同步任务列表
@@ -42,7 +44,7 @@ bigdata-governance-platform/
 │   │   │
 │   │   ├── api/                 # API Routes
 │   │   │   ├── auth/            # 认证相关
-│   │   │   ├── datasources/     # 数据源 CRUD
+│   │   │   ├── datasources/     # 数据源 CRUD ✅
 │   │   │   ├── sync/            # 同步任务
 │   │   │   ├── workflow/        # 工作流
 │   │   │   ├── schedule/        # 调度
@@ -53,39 +55,41 @@ bigdata-governance-platform/
 │   │   │   └── audit-logs/      # 审计日志
 │   │   │
 │   │   ├── components/          # 共享组件
-│   │   │   ├── layout/          # 布局组件（Sidebar, Header）
+│   │   │   ├── layout/          # 布局组件（Sidebar, Header）✅
+│   │   │   ├── datasource/      # 数据源表单组件 ✅
 │   │   │   ├── dag-editor/      # DAG 编辑器组件（ReactFlow）
 │   │   │   ├── sql-editor/      # SQL 编辑器组件（Monaco）
 │   │   │   └── common/          # 通用组件
 │   │   │
 │   │   ├── lib/                 # 工具库
-│   │   │   ├── aws/             # AWS SDK 封装
-│   │   │   │   ├── glue.ts      # Glue API
+│   │   │   ├── aws/             # AWS SDK 封装 ✅
+│   │   │   │   ├── glue.ts      # Glue API ✅
 │   │   │   │   ├── dms.ts       # DMS API
-│   │   │   │   ├── redshift.ts  # Redshift Data API
+│   │   │   │   ├── redshift.ts  # Redshift Data API ✅
 │   │   │   │   ├── mwaa.ts      # MWAA (Airflow) API
-│   │   │   │   ├── dynamodb.ts  # DynamoDB 操作
-│   │   │   │   ├── cognito.ts   # Cognito 认证
-│   │   │   │   └── lakeformation.ts # Lake Formation 权限 API
+│   │   │   │   ├── dynamodb.ts  # DynamoDB 操作 ✅
+│   │   │   │   ├── cognito.ts   # Cognito 认证 ✅
+│   │   │   │   ├── lakeformation.ts # Lake Formation 权限 API ✅
+│   │   │   │   └── sns.ts       # SNS 通知 ✅
 │   │   │   ├── openmetadata/    # OpenMetadata API 封装
 │   │   │   └── utils/           # 通用工具
 │   │   │
-│   │   └── types/               # TypeScript 类型定义
-│   │       ├── datasource.ts
-│   │       ├── sync-task.ts
-│   │       ├── workflow.ts
-│   │       └── schedule.ts
+│   │   └── types/               # TypeScript 类型定义 ✅
+│   │       ├── datasource.ts    # ✅
+│   │       ├── sync-task.ts     # ✅
+│   │       ├── workflow.ts      # ✅
+│   │       └── permission.ts    # ✅ (含 Approval, AuditLog, Role)
 │   │
 │   └── public/                  # 静态资源
 │
-├── infra/                       # CDK 基础设施代码
+├── infra/                       # CDK 基础设施代码 ✅ 已初始化
 │   ├── package.json
 │   ├── bin/
-│   │   └── app.ts               # CDK App 入口
+│   │   └── app.ts               # CDK App 入口 ✅
 │   ├── lib/
-│   │   ├── vpc-stack.ts         # VPC + 网络
-│   │   ├── auth-stack.ts        # Cognito
-│   │   ├── database-stack.ts    # DynamoDB Tables
+│   │   ├── vpc-stack.ts         # VPC + 网络 ✅
+│   │   ├── auth-stack.ts        # Cognito + 4 RBAC Groups ✅
+│   │   ├── database-stack.ts    # DynamoDB 6 张表 ✅
 │   │   ├── redshift-stack.ts    # Redshift Serverless
 │   │   ├── s3-tables-stack.ts   # S3 Table Bucket
 │   │   ├── mwaa-stack.ts        # MWAA Environment

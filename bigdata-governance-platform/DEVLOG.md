@@ -115,9 +115,10 @@ bigdata-governance-platform/
 ```
 
 ### 下次继续
-- [ ] 开始 Phase 1.3：数据源管理模块
-  - [ ] 数据源 CRUD API（`/api/datasources`）
-  - [ ] 数据源列表页面（表格 + 新建/编辑/删除）
-  - [ ] 数据源配置表单（host/port/user/password/database）
-  - [ ] 连通性测试功能
+- [ ] 开始 Phase 2：数据同步模块
+  - [ ] 同步任务 CRUD API（`/api/sync`）
+  - [ ] 同步任务配置页面（源端选择 → 目标端配置 → 分区/排序键）
+  - [ ] 同步引擎对接（Zero-ETL / Glue Job / DMS）
+  - [ ] 同步任务列表 + 状态监控
 - [ ] 启动开发服务器命令：`cd platform && npm run dev`
+- [ ] 所有文档已同步更新（README / ROADMAP / ARCHITECTURE / DEVLOG）

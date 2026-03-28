@@ -101,3 +101,46 @@
 审批：数据源上线 / 任务发布 / SQL 执行 / 权限申请 → 审批通过后执行
 审计：全操作记录写入 DynamoDB，可查询可导出
 ```
+
+## 开发进度
+
+| Phase | 内容 | 状态 |
+|-------|------|------|
+| Phase 0 | 项目初始化、架构设计 | ✅ 已完成 |
+| Phase 1 | 基础设施 + 数据源管理 | ✅ 核心已完成 |
+| Phase 2 | 数据同步模块 | ⏳ 待开始 |
+| Phase 3 | ETL 编排 + 调度 | 🔲 未开始 |
+| Phase 4 | Redshift 任务 + 监控 | 🔲 未开始 |
+| Phase 5 | 权限管控 | 🔲 未开始 |
+| Phase 6 | 数据治理 (OpenMetadata) | 🔲 未开始 |
+| Phase 7 | 完善 + 扩展 | 🔲 未开始 |
+
+详细进度请查看 [ROADMAP.md](./ROADMAP.md)
+
+## 快速启动
+
+```bash
+# 克隆仓库
+git clone git@github.com:Ziyang-Liao/aws-bigdata.git
+cd aws-bigdata/bigdata-governance-platform
+
+# 启动前端开发
+cd platform
+npm install
+npm run dev
+# 访问 http://localhost:3000
+
+# 部署基础设施（需要 AWS 凭证）
+cd ../infra
+npm install
+npx cdk deploy --all
+```
+
+## 项目文档
+
+| 文件 | 说明 |
+|------|------|
+| [README.md](./README.md) | 项目说明、架构总览 |
+| [ROADMAP.md](./ROADMAP.md) | 分阶段实施计划、进度追踪 |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | 技术架构、DB Schema、API 设计 |
+| [DEVLOG.md](./DEVLOG.md) | 开发日志，每次会话记录 |

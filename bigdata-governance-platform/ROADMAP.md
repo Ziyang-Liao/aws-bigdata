@@ -1,24 +1,24 @@
 # 项目实施计划 / Implementation Roadmap
 
-## 当前状态：Phase 0 - 项目初始化 ✅ 进行中
+## 当前状态：Phase 2 - 数据同步模块 ⏳ 待开始
 
 ---
 
-## Phase 0: 项目初始化（第 0 周）
+## Phase 0: 项目初始化（第 0 周）✅ 已完成
 - [x] 确定架构方案
 - [x] 确定技术栈
 - [x] 创建项目仓库
-- [ ] 创建 GitHub 仓库并推送
-- [ ] 初始化 Next.js 项目脚手架
-- [ ] 定义 DynamoDB 表结构
-- [ ] 搭建基础项目结构（目录、路由、布局）
+- [x] 创建 GitHub 仓库并推送
+- [x] 初始化 Next.js 项目脚手架
+- [x] 定义 DynamoDB 表结构
+- [x] 搭建基础项目结构（目录、路由、布局）
 
-## Phase 1: 基础设施 + 数据源管理（第 1-2 周）
+## Phase 1: 基础设施 + 数据源管理（第 1-2 周）✅ 核心已完成
 
 ### 1.1 AWS 基础设施（CDK）
-- [ ] VPC + 子网 + 安全组
-- [ ] Cognito User Pool
-- [ ] DynamoDB Tables
+- [x] VPC + 子网 + 安全组（vpc-stack.ts）
+- [x] Cognito User Pool + 4 个 RBAC Groups（auth-stack.ts）
+- [x] DynamoDB 6 张表（database-stack.ts）
 - [ ] ECS Fargate Cluster（平台部署用）
 - [ ] S3 Table Bucket
 - [ ] Redshift Serverless Namespace + Workgroup
@@ -26,9 +26,9 @@
 - [ ] OpenMetadata on ECS Fargate
 
 ### 1.2 用户认证模块
-- [ ] Cognito 集成（登录/注册/Token 刷新）
-- [ ] RBAC 权限模型（Admin / Developer / Viewer）
-- [ ] 登录页面 + 布局框架
+- [x] Cognito 集成（登录页面 + 表单）
+- [x] RBAC 权限模型（Admin / Developer / Analyst / Viewer）CDK Groups 已创建
+- [x] 登录页面 + 布局框架（侧边栏 + 顶栏 + 11 个路由页面）
 
 ### 1.3 数据源管理模块
 - [x] 数据源 CRUD API（DynamoDB）
