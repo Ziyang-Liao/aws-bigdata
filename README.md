@@ -1,99 +1,68 @@
-# AWS 大数据实战指南
+# BigData Governance Platform / 大数据开发治理平台
 
-[![AWS](https://img.shields.io/badge/AWS-BigData-orange.svg)](https://aws.amazon.com/big-data/)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+一站式大数据开发治理平台，通过可视化配置实现数据同步、ETL 编排、任务调度、数据治理。底层全部基于 AWS 托管服务，平台本身只做 UI 层 + API 编排层。
 
-AWS 大数据服务的操作配置与实战指南合集，涵盖 ETL 管道、流式数据入湖、数据仓库、点击流分析等场景。
-
-## 目录结构
+## 架构总览
 
 ```
-aws-bigdata/
-├── clickstream-lakehouse/          # Clickstream Analytics 增强版 (v1.2.1)
-├── etl/                            # Glue ETL 管道与数据入湖
-├── s3table/                        # S3 Tables + MSK 流式入湖
-├── Flink/                          # Flink 问题排查与调优
-├── bigdata-governance-platform/    # 大数据治理平台
-└── strands-agent-demo/             # Strands Agent 智能体 Demo
+                         ┌─────────────────────────┐
+                         │     CloudFront (CDN)     │
+                         └────────────┬────────────┘
+                                      │
+                         ┌────────────▼────────────┐
+                         │   Platform (ECS Fargate) │
+                         │   Next.js Full-Stack App │
+                         └────────────┬────────────┘
+                                      │
+          ┌───────────┬───────────┬───┴────┬──────────┬──────────┐
+          ▼           ▼           ▼        ▼          ▼          ▼
+       Cognito    DynamoDB     MWAA    Glue API   Redshift   OpenMetadata
+      (Auth)    (Metadata)  (Schedule) (ETL)    (Data API)  (ECS Fargate)
 ```
 
-## 项目概览
+## 核心功能模块
 
-### Clickstream Analytics 增强版 (`clickstream-lakehouse/`)
+| 模块 | 功能 | 底层服务 |
+|------|------|---------|
+| 数据源管理 | 配置/测试数据库连接 | DMS / Glue Connection API |
+| 数据同步 | MySQL → S3 Tables (Iceberg) → Redshift | Zero-ETL / DMS / Glue Job |
+| ETL 编排 | DAG 拖拉拽可视化编排 | MWAA (Airflow) |
+| 任务调度 | Cron / 事件触发 / 依赖调度 | MWAA + EventBridge |
+| Redshift 任务 | SQL 编辑执行、排序键/分布键配置 | Redshift Data API |
+| 任务监控 | 运行状态、日志、告警 | CloudWatch + Glue/Airflow API |
+| 数据治理 | 血缘(列级)、数据目录、数据地图、数据质量 | OpenMetadata |
+| 用户管理 | 认证、RBAC 权限 | Cognito |
 
-基于 [aws-solutions/clickstream-analytics-on-aws](https://github.com/aws-solutions/clickstream-analytics-on-aws) 的增强版本，新增 S3 Tables 数据建模、字段过滤、跨区域同步等功能。
+## 技术栈
 
-```
-数据采集 → Ingestion Server (ECS) → S3 Buffer → EMR Spark ETL → S3 Tables (Iceberg)
-                                                              → Athena 查询
-                                                              → Redshift 数仓
-```
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| 前端框架 | Next.js 14 (App Router) | 全栈一体 |
+| UI 组件 | Ant Design 5 | 企业级后台 |
+| DAG 编辑器 | ReactFlow | 拖拉拽流程编排 |
+| SQL 编辑器 | Monaco Editor | VS Code 同款 |
+| 后端 API | Next.js API Routes + boto3 (Lambda) | AWS SDK 调用 |
+| 元数据存储 | DynamoDB | 任务/数据源/调度配置 |
+| 用户认证 | Amazon Cognito | 免自建用户系统 |
+| 数据治理 | OpenMetadata (ECS Fargate) | 血缘/目录/质量 |
+| 部署 | ECS Fargate + CloudFront | 容器化部署 |
+| IaC | CDK (TypeScript) | 基础设施即代码 |
 
-- **S3 Tables 数据建模**：EMR Serverless + Apache Iceberg，15 个 Spark 建模 Job
-- **字段收集过滤**：Web 控制台配置白名单/黑名单
-- **一键部署**：`./deployment/solution-deploy.sh` 自动完成构建、镜像推送、模板上传、CloudFormation 部署
-
-详见 [clickstream-lakehouse/README.md](clickstream-lakehouse/README.md)
-
-### ETL 管道 (`etl/`)
-
-Glue ETL 批处理入湖方案：
-
-```
-RDS MySQL → Glue ETL (增量抽取 + PII 脱敏 + MERGE 去重) → S3 Iceberg 表 → Redshift
-```
-
-- 支持 Iceberg 标准 S3 存储和 S3 Tables 托管存储
-- 增量抽取基于 Glue Job Bookmark
-- PII 字段自动脱敏（手机号、邮箱）
-
-### S3 Tables 流式入湖 (`s3table/`)
-
-MSK Serverless 实时流式数据入湖方案：
+## 数据流架构
 
 ```
-数据源 → MSK Serverless (IAM 认证) → MSK Connect (Iceberg Sink) → S3 Tables
+源数据库
+  │
+  ├── 通道 1：Zero-ETL（支持的源优先走这条）
+  │     自建 MySQL / RDS MySQL / Aurora / PG / Oracle
+  │     → 直接到 Redshift（近实时，零运维）
+  │
+  └── 通道 2：Glue ETL（通道1覆盖不了的走这条）
+        任意 JDBC 源
+        → S3 Tables (Iceberg, 可配分区)
+        → Redshift (MERGE/COPY, 可配排序键/分布键)
+
+调度：MWAA (Airflow) 统一调度
+监控：CloudWatch + 平台聚合展示
+治理：OpenMetadata 自动采集血缘
 ```
-
-- 全托管架构，部署在私有子网
-- 详细的踩坑记录（7 个常见问题及解决方案）
-
-### Flink 问题排查 (`Flink/`)
-
-Apache Flink idle timeout 相关 bug 分析与排查记录。
-
-### 大数据治理平台 (`bigdata-governance-platform/`)
-
-大数据治理平台的架构设计与开发日志。
-
-## 快速开始
-
-### Clickstream Analytics 部署
-
-```bash
-cd clickstream-lakehouse/deployment
-./solution-deploy.sh -r <region> -p <aws-profile> -e <email>
-```
-
-### ETL Workshop
-
-```bash
-cd etl
-# 按 README.md 中的步骤操作
-```
-
-## 版本管理
-
-各子项目独立维护版本号，详见各自的 CHANGELOG：
-
-| 项目 | 当前版本 | 变更日志 |
-|------|---------|---------|
-| clickstream-lakehouse | v1.2.1 (stable) / v1.3.0-dev | [CHANGELOG](clickstream-lakehouse/CHANGELOG.md) |
-
-## 贡献指南
-
-欢迎提交 Issue 和 Pull Request。请参阅 [CONTRIBUTING](clickstream-lakehouse/CONTRIBUTING.md) 了解详情。
-
-## License
-
-[MIT](LICENSE)
