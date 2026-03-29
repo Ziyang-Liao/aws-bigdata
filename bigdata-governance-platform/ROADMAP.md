@@ -1,6 +1,6 @@
 # 项目实施计划 / Implementation Roadmap
 
-## 当前状态：Phase 2 - 数据同步模块 ⏳ 待开始
+## 当前状态：Phase 3 - ETL 编排 + 调度 ⏳ 待开始
 
 ---
 
@@ -37,27 +37,27 @@
 - [x] 数据源列表页面
 - [x] 支持的数据源类型：MySQL, PostgreSQL, Oracle, SQL Server
 
-## Phase 2: 数据同步模块（第 3-4 周）
+## Phase 2: 数据同步模块（第 3-4 周）✅ 核心已完成
 
 ### 2.1 同步任务配置
-- [ ] 源端配置：选择数据源 → 选择库/表（从源库动态拉取）
-- [ ] 目标端配置：S3 Tables (Iceberg) 或 Redshift
-- [ ] 分区配置：选择分区字段、分区类型（日期/数值/字符串）
-- [ ] 写入模式：Append / Overwrite / Merge (Upsert)
-- [ ] Redshift 配置：排序键 (SORTKEY)、分布键 (DISTKEY)
-- [ ] 同步模式：全量 / 增量 (CDC)
+- [x] 源端配置：选择数据源 → 选择库/表（从源库动态拉取）
+- [x] 目标端配置：S3 Tables (Iceberg) 或 Redshift
+- [x] 分区配置：选择分区字段、分区类型（日期/数值/字符串）
+- [x] 写入模式：Append / Overwrite / Merge (Upsert)
+- [x] Redshift 配置：排序键 (SORTKEY)、分布键 (DISTKEY)、分布方式
+- [x] 同步模式：全量 / 增量 (CDC)
 
 ### 2.2 同步引擎对接
+- [x] Glue ETL 通道：生成 Glue Job 脚本（PySpark）→ 调 Glue API 创建/启动 Job
 - [ ] Zero-ETL 通道：调 Glue create-integration API
-- [ ] Glue ETL 通道：生成 Glue Job 脚本（PySpark）→ 调 Glue API 创建 Job
 - [ ] DMS 通道：调 DMS API 创建复制任务（CDC 场景）
-- [ ] 自动选择通道逻辑（源类型 → 推荐最优通道）
+- [x] 自动选择通道逻辑（UI 可选 Glue/Zero-ETL/DMS）
 
 ### 2.3 同步任务管理
-- [ ] 任务列表页面（状态、最近运行时间、数据量）
-- [ ] 任务详情页面（配置信息、运行历史）
-- [ ] 手动触发执行
-- [ ] 任务启停控制
+- [x] 任务列表页面（状态、通道、目标、写入模式、操作）
+- [x] 任务详情页面（配置信息、运行历史）
+- [x] 手动触发执行（启动/停止）
+- [x] 运行历史（从 Glue Job Runs 拉取）
 
 ## Phase 3: ETL 编排 + 调度（第 5-6 周）
 

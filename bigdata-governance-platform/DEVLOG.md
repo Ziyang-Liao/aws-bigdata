@@ -122,3 +122,33 @@ bigdata-governance-platform/
   - [ ] 同步任务列表 + 状态监控
 - [ ] 启动开发服务器命令：`cd platform && npm run dev`
 - [ ] 所有文档已同步更新（README / ROADMAP / ARCHITECTURE / DEVLOG）
+
+---
+
+## 2026-03-29 Session 2: 数据同步模块
+
+### 完成内容
+- [x] 同步任务 CRUD API（`/api/sync` + `/api/sync/[id]`）
+- [x] 同步任务启动 API（`/api/sync/[id]/start`）— 自动创建 Glue Job 并启动
+- [x] 同步任务停止 API（`/api/sync/[id]/stop`）— 批量停止运行中的 Job Runs
+- [x] 运行历史 API（`/api/sync/[id]/runs`）— 从 Glue Job Runs 拉取
+- [x] Glue PySpark 脚本生成器（`lib/sync/glue-script-generator.ts`）
+  - 支持 MySQL → S3 Tables (Iceberg) 带分区
+  - 支持 MySQL → Redshift 带 MERGE/UPSERT
+  - 支持 append / overwrite / merge 三种写入模式
+- [x] 同步任务列表页面（状态、通道、目标、启动/停止/删除）
+- [x] 新建同步任务页面（4 步向导：基本信息 → 源端 → 目标 → 高级选项）
+  - 同步通道选择（Glue ETL / Zero-ETL / DMS）
+  - 分区字段配置
+  - Redshift 排序键/分布键/分布方式配置
+  - 写入模式 + Merge 主键配置
+- [x] 同步任务详情页面（配置展示 + 运行历史表格）
+- [x] 全部 build 通过
+
+### 下次继续
+- [ ] 开始 Phase 3：ETL 编排 + 调度
+  - [ ] ReactFlow DAG 编辑器集成
+  - [ ] 节点类型定义（同步节点、SQL 节点、Python 节点、条件分支、通知）
+  - [ ] DAG → Airflow DAG 文件转换
+  - [ ] MWAA 对接（推送 DAG、触发、查询状态）
+  - [ ] 调度配置（Cron 可视化选择器）

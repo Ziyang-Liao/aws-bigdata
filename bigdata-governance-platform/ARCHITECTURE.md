@@ -23,10 +23,10 @@ bigdata-governance-platform/
 │   │   │   ├── datasources/     # 数据源管理 ✅
 │   │   │   │   ├── page.tsx     # 数据源列表 ✅
 │   │   │   │   └── [id]/        # 数据源详情/编辑
-│   │   │   ├── sync/            # 数据同步
-│   │   │   │   ├── page.tsx     # 同步任务列表
-│   │   │   │   ├── new/         # 新建同步任务
-│   │   │   │   └── [id]/        # 任务详情
+│   │   │   ├── sync/            # 数据同步 ✅
+│   │   │   │   ├── page.tsx     # 同步任务列表 ✅
+│   │   │   │   ├── new/         # 新建同步任务（4步向导）✅
+│   │   │   │   └── [id]/        # 任务详情（配置+运行历史）✅
 │   │   │   ├── workflow/        # ETL 工作流编排
 │   │   │   │   ├── page.tsx     # 工作流列表
 │   │   │   │   └── [id]/        # DAG 编辑器页面
@@ -45,7 +45,7 @@ bigdata-governance-platform/
 │   │   ├── api/                 # API Routes
 │   │   │   ├── auth/            # 认证相关
 │   │   │   ├── datasources/     # 数据源 CRUD ✅
-│   │   │   ├── sync/            # 同步任务
+│   │   │   ├── sync/            # 同步任务 CRUD + 启动/停止/运行历史 ✅
 │   │   │   ├── workflow/        # 工作流
 │   │   │   ├── schedule/        # 调度
 │   │   │   ├── redshift/        # Redshift 操作
