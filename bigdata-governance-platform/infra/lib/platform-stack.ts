@@ -23,6 +23,7 @@ export class PlatformStack extends cdk.Stack {
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonDynamoDBFullAccess"),
         iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonRedshiftDataFullAccess"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonRedshiftFullAccess"),
         iam.ManagedPolicy.fromAwsManagedPolicyName("AWSGlueConsoleFullAccess"),
         iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess"),
         iam.ManagedPolicy.fromAwsManagedPolicyName("CloudWatchLogsReadOnlyAccess"),
