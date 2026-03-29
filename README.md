@@ -88,7 +88,7 @@ cd etl
 
 | 项目 | 当前版本 | 变更日志 |
 |------|---------|---------|
-| clickstream-lakehouse | v1.2.1 | [CHANGELOG](clickstream-lakehouse/CHANGELOG.md) |
+| clickstream-lakehouse | v1.2.1 (stable) / v1.3.0-dev | [CHANGELOG](clickstream-lakehouse/CHANGELOG.md) |
 
 ## 贡献指南
 
