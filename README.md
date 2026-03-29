@@ -3,91 +3,97 @@
 [![AWS](https://img.shields.io/badge/AWS-BigData-orange.svg)](https://aws.amazon.com/big-data/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-AWS 大数据服务的操作配置与实战指南合集，涵盖 ETL 管道、流式数据入湖、数据仓库等场景。
+AWS 大数据服务的操作配置与实战指南合集，涵盖 ETL 管道、流式数据入湖、数据仓库、点击流分析等场景。
 
 ## 目录结构
 
 ```
 aws-bigdata/
-├── etl/                                        # ETL 管道与数据入湖
-│   ├── README.md                               # ETL Workshop 详细说明
-│   ├── glue_init_mysql.py                      # Glue Python Shell: 初始化 MySQL 测试数据
-│   ├── glue_add_city_column.py                 # Glue Python Shell: 添加 city 列并填充数据
-│   ├── glue_add_duplicates.py                  # Glue Python Shell: 插入重复/更新记录用于去重测试
-│   ├── glue_incremental_test.py                # Glue Python Shell: 插入增量数据用于测试
-│   ├── glue_mysql_to_iceberg.py                # Glue 5.0 ETL: MySQL → Iceberg (增量 MERGE + PII 脱敏)
-│   ├── glue_mysql_to_iceberg_partitioned.py    # Glue 5.0 ETL: MySQL → Iceberg 分区表 (按 city 分区)
-│   ├── glue_mysql_to_s3tables.py               # Glue 5.0 ETL: MySQL → S3 Tables (托管 Iceberg)
-│   └── verify_workshop.sh                      # ETL Workshop 端到端验证脚本
-├── s3table/                                    # S3 Tables 相关方案与指南
-│   ├── MSK-Serverless-to-S3Tables-Guide.md     # MSK → S3 Tables 实战操作指南
-│   └── S3_TABLES_WIP.md                        # S3 Tables 方案调研笔记
-└── strands-agent-demo/                         # Strands Agent 智能体 Demo (Python)
-    ├── README.md                               # 完整操作指南 (Tool vs Skill 对比)
-    ├── tools.py                                # Tool 定义 — 3 个灯效控制工具 (@tool)
-    ├── skills/scene-mode/SKILL.md              # Skill 定义 — 场景模式知识包 (SKILL.md)
-    ├── demo.py                                 # 本地测试 — Tool + Skill 对比演示
-    ├── server.py                               # AgentCore 服务 — Flask HTTP 入口
-    ├── Dockerfile                              # 容器镜像 (arm64, Python 3.12)
-    └── requirements.txt                        # 依赖
+├── clickstream-lakehouse/          # Clickstream Analytics 增强版 (v1.2.1)
+├── etl/                            # Glue ETL 管道与数据入湖
+├── s3table/                        # S3 Tables + MSK 流式入湖
+├── Flink/                          # Flink 问题排查与调优
+├── bigdata-governance-platform/    # 大数据治理平台
+└── strands-agent-demo/             # Strands Agent 智能体 Demo
 ```
 
-## 内容概览
+## 项目概览
+
+### Clickstream Analytics 增强版 (`clickstream-lakehouse/`)
+
+基于 [aws-solutions/clickstream-analytics-on-aws](https://github.com/aws-solutions/clickstream-analytics-on-aws) 的增强版本，新增 S3 Tables 数据建模、字段过滤、跨区域同步等功能。
+
+```
+数据采集 → Ingestion Server (ECS) → S3 Buffer → EMR Spark ETL → S3 Tables (Iceberg)
+                                                              → Athena 查询
+                                                              → Redshift 数仓
+```
+
+- **S3 Tables 数据建模**：EMR Serverless + Apache Iceberg，15 个 Spark 建模 Job
+- **字段收集过滤**：Web 控制台配置白名单/黑名单
+- **一键部署**：`./deployment/solution-deploy.sh` 自动完成构建、镜像推送、模板上传、CloudFormation 部署
+
+详见 [clickstream-lakehouse/README.md](clickstream-lakehouse/README.md)
 
 ### ETL 管道 (`etl/`)
 
-包含两套完整的数据入湖方案：
-
-**方案一：Glue ETL 批处理入湖**
-
-完整的增量 ETL 管道，覆盖从数据源到数据仓库的全链路：
+Glue ETL 批处理入湖方案：
 
 ```
 RDS MySQL → Glue ETL (增量抽取 + PII 脱敏 + MERGE 去重) → S3 Iceberg 表 → Redshift
 ```
 
-- 支持 Iceberg 标准 S3 存储和 S3 Tables 托管存储两种模式
+- 支持 Iceberg 标准 S3 存储和 S3 Tables 托管存储
 - 增量抽取基于 Glue Job Bookmark
-- MERGE INTO 实现 Upsert 去重
 - PII 字段自动脱敏（手机号、邮箱）
-- 支持按 city 字段分区
 
-**方案二：MSK Serverless 流式入湖**
+### S3 Tables 流式入湖 (`s3table/`)
 
-实时流式数据入湖方案，全部署在私有子网：
+MSK Serverless 实时流式数据入湖方案：
 
 ```
 数据源 → MSK Serverless (IAM 认证) → MSK Connect (Iceberg Sink) → S3 Tables
 ```
 
-- MSK Serverless + MSK Connect 全托管架构
-- Iceberg Kafka Connect 1.7.1 写入 S3 Tables REST Catalog
-- 自动建表、Schema Evolution
+- 全托管架构，部署在私有子网
 - 详细的踩坑记录（7 个常见问题及解决方案）
 
-### Strands Agent 智能体 Demo (`strands-agent-demo/`)
+### Flink 问题排查 (`Flink/`)
 
-基于 Strands Agents SDK (Python) + Bedrock AgentCore 的灯效控制 Demo，同时展示 **Tool** 和 **Skill** 两种能力扩展方式：
+Apache Flink idle timeout 相关 bug 分析与排查记录。
 
+### 大数据治理平台 (`bigdata-governance-platform/`)
+
+大数据治理平台的架构设计与开发日志。
+
+## 快速开始
+
+### Clickstream Analytics 部署
+
+```bash
+cd clickstream-lakehouse/deployment
+./solution-deploy.sh -r <region> -p <aws-profile> -e <email>
 ```
-自然语言输入 → Strands Agent → Tool (执行操作) + Skill (加载领域知识) → 模拟 MCP 响应
+
+### ETL Workshop
+
+```bash
+cd etl
+# 按 README.md 中的步骤操作
 ```
 
-- **Tool**：3 个 `@tool` 装饰器函数（开关灯、亮度、颜色），直接执行原子操作
-- **Skill**：`SKILL.md` 场景模式知识包（电影/派对/阅读等），按需加载指导 Agent 组合调用多个 Tool
-- 已部署到 Amazon Bedrock AgentCore Runtime
-- 详细的 Tool vs Skill 对比说明和模型切换指南
+## 版本管理
 
-## 后续规划
+各子项目独立维护版本号，详见各自的 CHANGELOG：
 
-| 方向 | 内容 |
-|------|------|
-| `emr/` | EMR Serverless / EMR on EKS 数据处理 |
-| `redshift/` | Redshift Serverless 数据仓库配置与优化 |
-| `kinesis/` | Kinesis Data Streams / Firehose 实时流处理 |
-| `athena/` | Athena 查询优化与 Iceberg 表管理 |
-| `lake-formation/` | Lake Formation 数据湖权限管理 |
+| 项目 | 当前版本 | 变更日志 |
+|------|---------|---------|
+| clickstream-lakehouse | v1.2.1 | [CHANGELOG](clickstream-lakehouse/CHANGELOG.md) |
+
+## 贡献指南
+
+欢迎提交 Issue 和 Pull Request。请参阅 [CONTRIBUTING](clickstream-lakehouse/CONTRIBUTING.md) 了解详情。
 
 ## License
 
-MIT
+[MIT](LICENSE)

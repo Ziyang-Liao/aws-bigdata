@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'clickstream-lakehouse/src/**'
+      - 'clickstream-lakehouse/test/**'
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+          cache-dependency-path: clickstream-lakehouse/pnpm-lock.yaml
+      - run: cd clickstream-lakehouse && pnpm install --frozen-lockfile
+      - run: cd clickstream-lakehouse && npx eslint 'src/**/*.ts'
+
+  build:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+          cache-dependency-path: clickstream-lakehouse/pnpm-lock.yaml
+      - run: cd clickstream-lakehouse && pnpm install --frozen-lockfile
+      - run: cd clickstream-lakehouse && npx cdk synth --quiet
