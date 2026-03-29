@@ -16,5 +16,7 @@ export class VpcStack extends cdk.Stack {
         { name: "Private", subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS, cidrMask: 24 },
       ],
     });
+
+    new cdk.CfnOutput(this, "VpcId", { value: this.vpc.vpcId });
   }
 }

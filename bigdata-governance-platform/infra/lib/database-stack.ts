@@ -11,8 +11,6 @@ export class DatabaseStack extends cdk.Stack {
       { name: "bgp-sync-tasks", pk: "userId", sk: "taskId" },
       { name: "bgp-workflows", pk: "userId", sk: "workflowId" },
       { name: "bgp-redshift-tasks", pk: "userId", sk: "taskId" },
-      { name: "bgp-approvals", pk: "approvalId", sk: "createdAt" },
-      { name: "bgp-audit-logs", pk: "userId", sk: "timestamp" },
     ];
 
     for (const t of tables) {
@@ -21,7 +19,7 @@ export class DatabaseStack extends cdk.Stack {
         partitionKey: { name: t.pk, type: dynamodb.AttributeType.STRING },
         sortKey: { name: t.sk, type: dynamodb.AttributeType.STRING },
         billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-        removalPolicy: cdk.RemovalPolicy.RETAIN,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
       });
     }
   }

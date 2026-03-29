@@ -11,9 +11,8 @@
     "alwaysStrict": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "outDir": "./cdk.out",
-    "rootDir": ".",
-    "skipLibCheck": true
+    "outDir": "./dist",
+    "rootDir": "."
   },
-  "include": ["bin/**/*", "lib/**/*"]
+  "exclude": ["node_modules", "dist"]
 }

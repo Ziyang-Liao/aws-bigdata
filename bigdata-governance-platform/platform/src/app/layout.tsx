@@ -1,21 +1,17 @@
 import type { Metadata } from "next";
-import { AntdRegistry } from "@ant-design/nextjs-registry";
 import "./globals.css";
+import RootLayoutClient from "./layoutClient";
 
 export const metadata: Metadata = {
-  title: "BigData Governance Platform",
-  description: "大数据开发治理平台",
+  title: "大数据治理平台",
+  description: "一站式大数据开发治理平台",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
       <body>
-        <AntdRegistry>{children}</AntdRegistry>
+        <RootLayoutClient>{children}</RootLayoutClient>
       </body>
     </html>
   );

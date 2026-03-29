@@ -1,24 +1,24 @@
 # 项目实施计划 / Implementation Roadmap
 
-## 当前状态：Phase 3 - ETL 编排 + 调度 ⏳ 待开始
+## 当前状态：Phase 1 - 基础设施 + 数据源管理 🚧 进行中
 
 ---
 
-## Phase 0: 项目初始化（第 0 周）✅ 已完成
+## Phase 0: 项目初始化（第 0 周） ✅
 - [x] 确定架构方案
 - [x] 确定技术栈
 - [x] 创建项目仓库
-- [x] 创建 GitHub 仓库并推送
+- [ ] 创建 GitHub 仓库并推送
 - [x] 初始化 Next.js 项目脚手架
 - [x] 定义 DynamoDB 表结构
 - [x] 搭建基础项目结构（目录、路由、布局）
 
-## Phase 1: 基础设施 + 数据源管理（第 1-2 周）✅ 核心已完成
+## Phase 1: 基础设施 + 数据源管理（第 1-2 周）
 
 ### 1.1 AWS 基础设施（CDK）
-- [x] VPC + 子网 + 安全组（vpc-stack.ts）
-- [x] Cognito User Pool + 4 个 RBAC Groups（auth-stack.ts）
-- [x] DynamoDB 6 张表（database-stack.ts）
+- [ ] VPC + 子网 + 安全组
+- [ ] Cognito User Pool
+- [ ] DynamoDB Tables
 - [ ] ECS Fargate Cluster（平台部署用）
 - [ ] S3 Table Bucket
 - [ ] Redshift Serverless Namespace + Workgroup
@@ -26,38 +26,38 @@
 - [ ] OpenMetadata on ECS Fargate
 
 ### 1.2 用户认证模块
-- [x] Cognito 集成（登录页面 + 表单）
-- [x] RBAC 权限模型（Admin / Developer / Analyst / Viewer）CDK Groups 已创建
-- [x] 登录页面 + 布局框架（侧边栏 + 顶栏 + 11 个路由页面）
+- [ ] Cognito 集成（登录/注册/Token 刷新）
+- [ ] RBAC 权限模型（Admin / Developer / Viewer）
+- [ ] 登录页面 + 布局框架
 
 ### 1.3 数据源管理模块
-- [x] 数据源 CRUD API（DynamoDB）
-- [x] 数据源配置页面（表单：host/port/user/password/database）
-- [x] 连通性测试（调 Glue Connection API）
-- [x] 数据源列表页面
-- [x] 支持的数据源类型：MySQL, PostgreSQL, Oracle, SQL Server
+- [ ] 数据源 CRUD API（DynamoDB）
+- [ ] 数据源配置页面（表单：host/port/user/password/database）
+- [ ] 连通性测试（调 Glue Connection API 或 DMS test-connection）
+- [ ] 数据源列表页面
+- [ ] 支持的数据源类型：MySQL, PostgreSQL, Oracle, SQL Server
 
-## Phase 2: 数据同步模块（第 3-4 周）✅ 核心已完成
+## Phase 2: 数据同步模块（第 3-4 周）
 
 ### 2.1 同步任务配置
-- [x] 源端配置：选择数据源 → 选择库/表（从源库动态拉取）
-- [x] 目标端配置：S3 Tables (Iceberg) 或 Redshift
-- [x] 分区配置：选择分区字段、分区类型（日期/数值/字符串）
-- [x] 写入模式：Append / Overwrite / Merge (Upsert)
-- [x] Redshift 配置：排序键 (SORTKEY)、分布键 (DISTKEY)、分布方式
-- [x] 同步模式：全量 / 增量 (CDC)
+- [ ] 源端配置：选择数据源 → 选择库/表（从源库动态拉取）
+- [ ] 目标端配置：S3 Tables (Iceberg) 或 Redshift
+- [ ] 分区配置：选择分区字段、分区类型（日期/数值/字符串）
+- [ ] 写入模式：Append / Overwrite / Merge (Upsert)
+- [ ] Redshift 配置：排序键 (SORTKEY)、分布键 (DISTKEY)
+- [ ] 同步模式：全量 / 增量 (CDC)
 
 ### 2.2 同步引擎对接
-- [x] Glue ETL 通道：生成 Glue Job 脚本（PySpark）→ 调 Glue API 创建/启动 Job
 - [ ] Zero-ETL 通道：调 Glue create-integration API
+- [ ] Glue ETL 通道：生成 Glue Job 脚本（PySpark）→ 调 Glue API 创建 Job
 - [ ] DMS 通道：调 DMS API 创建复制任务（CDC 场景）
-- [x] 自动选择通道逻辑（UI 可选 Glue/Zero-ETL/DMS）
+- [ ] 自动选择通道逻辑（源类型 → 推荐最优通道）
 
 ### 2.3 同步任务管理
-- [x] 任务列表页面（状态、通道、目标、写入模式、操作）
-- [x] 任务详情页面（配置信息、运行历史）
-- [x] 手动触发执行（启动/停止）
-- [x] 运行历史（从 Glue Job Runs 拉取）
+- [ ] 任务列表页面（状态、最近运行时间、数据量）
+- [ ] 任务详情页面（配置信息、运行历史）
+- [ ] 手动触发执行
+- [ ] 任务启停控制
 
 ## Phase 3: ETL 编排 + 调度（第 5-6 周）
 
@@ -101,41 +101,9 @@
 - [ ] 单任务日志查看（Glue Job Logs / Airflow Task Logs）
 - [ ] 告警通知配置（SNS → 邮件/钉钉/企业微信 Webhook）
 
-## Phase 5: 权限管控（第 8-9 周）
+## Phase 5: 数据治理 - OpenMetadata 集成（第 8-9 周）
 
-### 5.1 平台 RBAC
-- [ ] Cognito Groups 创建（Admin / Developer / Analyst / Viewer）
-- [ ] 中间件：API 路由权限校验（基于角色）
-- [ ] 前端：按角色控制菜单/按钮显隐
-- [ ] 用户管理页面（列表、角色分配）
-
-### 5.2 数据层权限（字段级别）
-- [ ] Lake Formation 集成（CDK 配置）
-- [ ] 数据权限配置页面（选用户 → 选库/表/列 → 授权/撤权）
-- [ ] 调 Lake Formation API（grant-permissions / revoke-permissions）
-- [ ] 权限查询页面（查看某用户可访问的库/表/列）
-- [ ] 敏感字段标记（结合 OpenMetadata 标签 + Lake Formation Tag）
-
-### 5.3 审批流
-- [ ] 审批记录 CRUD API（DynamoDB bgp-approvals 表）
-- [ ] 审批列表页面（待审批 / 已审批 / 我发起的）
-- [ ] 审批详情 + 通过/驳回操作
-- [ ] 审批触发点集成：
-  - 数据源上线 → 触发审批
-  - 同步任务发布生产 → 触发审批
-  - 生产 SQL 执行 → 触发审批
-  - 数据权限申请 → 触发审批
-- [ ] 审批通知（SNS → 邮件/钉钉 Webhook）
-
-### 5.4 操作审计
-- [ ] 审计日志中间件（自动记录所有 API 操作）
-- [ ] 审计日志存储（DynamoDB bgp-audit-logs 表）
-- [ ] 审计日志查询页面（按用户/时间/操作类型筛选）
-- [ ] 审计日志导出（CSV）
-
-## Phase 6: 数据治理 - OpenMetadata 集成（第 10-11 周）
-
-### 6.1 OpenMetadata 部署
+### 5.1 OpenMetadata 部署
 - [ ] ECS Fargate 部署 OpenMetadata
 - [ ] 配置 Ingestion Connectors：
   - MySQL Connector（采集源库元数据）
@@ -144,14 +112,14 @@
   - Airflow Connector（采集 DAG 执行血缘）
   - S3 Connector（采集 S3 数据资产）
 
-### 6.2 平台集成
+### 5.2 平台集成
 - [ ] 数据治理入口页面（iframe 嵌入 OpenMetadata UI）
 - [ ] 数据目录搜索（调 OpenMetadata API，在平台内展示）
 - [ ] 血缘图展示（调 OpenMetadata Lineage API）
 - [ ] 数据地图（按业务域/主题域组织数据资产）
 - [ ] SSO 打通（Cognito → OpenMetadata 认证）
 
-## Phase 7: 完善 + 扩展（第 12+ 周）
+## Phase 6: 完善 + 扩展（第 10+ 周）
 
 - [ ] 更多数据源支持（MongoDB、DynamoDB、Kafka 等）
 - [ ] 数据质量规则配置（OpenMetadata Data Quality）

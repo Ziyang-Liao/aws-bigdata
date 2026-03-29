@@ -1,40 +1,26 @@
 "use client";
 
-import AppLayout from "@/components/layout/AppLayout";
 import { Card, Col, Row, Statistic } from "antd";
-import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  SyncOutlined,
-  DatabaseOutlined,
-} from "@ant-design/icons";
+import { DatabaseOutlined, SyncOutlined, ApartmentOutlined, CheckCircleOutlined } from "@ant-design/icons";
 
-export default function DashboardPage() {
+export default function HomePage() {
   return (
-    <AppLayout>
-      <h2 style={{ marginBottom: 24 }}>监控大盘</h2>
+    <div>
+      <h2>总览</h2>
       <Row gutter={16}>
         <Col span={6}>
-          <Card>
-            <Statistic title="数据源" value={0} prefix={<DatabaseOutlined />} />
-          </Card>
+          <Card><Statistic title="数据源" value={0} prefix={<DatabaseOutlined />} /></Card>
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic title="运行中" value={0} prefix={<SyncOutlined spin />} valueStyle={{ color: "#1890ff" }} />
-          </Card>
+          <Card><Statistic title="同步任务" value={0} prefix={<SyncOutlined />} /></Card>
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic title="成功" value={0} prefix={<CheckCircleOutlined />} valueStyle={{ color: "#3f8600" }} />
-          </Card>
+          <Card><Statistic title="工作流" value={0} prefix={<ApartmentOutlined />} /></Card>
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic title="失败" value={0} prefix={<CloseCircleOutlined />} valueStyle={{ color: "#cf1322" }} />
-          </Card>
+          <Card><Statistic title="今日成功" value={0} prefix={<CheckCircleOutlined />} valueStyle={{ color: "#3f8600" }} /></Card>
         </Col>
       </Row>
-    </AppLayout>
+    </div>
   );
 }

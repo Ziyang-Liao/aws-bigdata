@@ -1,32 +1,30 @@
 # 技术架构详细设计 / Technical Architecture
 
-> 最后更新：2026-03-28 | 已实现模块标注 ✅
-
 ## 1. 项目结构
 
 ```
 bigdata-governance-platform/
-├── README.md                    # 项目说明 ✅
-├── ROADMAP.md                   # 实施计划（进度追踪）✅
-├── ARCHITECTURE.md              # 本文件（技术架构）✅
-├── DEVLOG.md                    # 开发日志（每次开发记录）✅
+├── README.md                    # 项目说明
+├── ROADMAP.md                   # 实施计划（进度追踪）
+├── ARCHITECTURE.md              # 本文件（技术架构）
+├── DEVLOG.md                    # 开发日志（每次开发记录）
 │
-├── platform/                    # 主应用（Next.js）✅ 已初始化
+├── platform/                    # 主应用（Next.js）
 │   ├── package.json
-│   ├── next.config.mjs
+│   ├── next.config.js
 │   ├── tsconfig.json
 │   ├── src/
 │   │   ├── app/                 # App Router 页面
-│   │   │   ├── layout.tsx       # 全局布局 ✅
-│   │   │   ├── page.tsx         # 首页（Dashboard）✅
-│   │   │   ├── login/           # 登录页 ✅
-│   │   │   ├── datasources/     # 数据源管理 ✅
-│   │   │   │   ├── page.tsx     # 数据源列表 ✅
+│   │   │   ├── layout.tsx       # 全局布局（侧边栏 + 顶栏）
+│   │   │   ├── page.tsx         # 首页（Dashboard）
+│   │   │   ├── login/           # 登录页
+│   │   │   ├── datasources/     # 数据源管理
+│   │   │   │   ├── page.tsx     # 数据源列表
 │   │   │   │   └── [id]/        # 数据源详情/编辑
-│   │   │   ├── sync/            # 数据同步 ✅
-│   │   │   │   ├── page.tsx     # 同步任务列表 ✅
-│   │   │   │   ├── new/         # 新建同步任务（4步向导）✅
-│   │   │   │   └── [id]/        # 任务详情（配置+运行历史）✅
+│   │   │   ├── sync/            # 数据同步
+│   │   │   │   ├── page.tsx     # 同步任务列表
+│   │   │   │   ├── new/         # 新建同步任务
+│   │   │   │   └── [id]/        # 任务详情
 │   │   │   ├── workflow/        # ETL 工作流编排
 │   │   │   │   ├── page.tsx     # 工作流列表
 │   │   │   │   └── [id]/        # DAG 编辑器页面
@@ -35,65 +33,53 @@ bigdata-governance-platform/
 │   │   │   │   ├── page.tsx     # SQL 编辑器
 │   │   │   │   └── tasks/       # 任务管理
 │   │   │   ├── monitor/         # 监控大盘
-│   │   │   ├── permissions/     # 权限管控
-│   │   │   │   ├── page.tsx     # 数据权限配置（库/表/列级）
-│   │   │   │   ├── users/       # 用户管理 + 角色分配
-│   │   │   │   └── approvals/   # 审批列表
-│   │   │   ├── audit/           # 审计日志
 │   │   │   └── governance/      # 数据治理（OpenMetadata 集成）
 │   │   │
 │   │   ├── api/                 # API Routes
 │   │   │   ├── auth/            # 认证相关
-│   │   │   ├── datasources/     # 数据源 CRUD ✅
-│   │   │   ├── sync/            # 同步任务 CRUD + 启动/停止/运行历史 ✅
+│   │   │   ├── datasources/     # 数据源 CRUD
+│   │   │   ├── sync/            # 同步任务
 │   │   │   ├── workflow/        # 工作流
 │   │   │   ├── schedule/        # 调度
 │   │   │   ├── redshift/        # Redshift 操作
-│   │   │   ├── monitor/         # 监控数据
-│   │   │   ├── permissions/     # 权限管控（RBAC + Lake Formation）
-│   │   │   ├── approvals/       # 审批流
-│   │   │   └── audit-logs/      # 审计日志
+│   │   │   └── monitor/         # 监控数据
 │   │   │
 │   │   ├── components/          # 共享组件
-│   │   │   ├── layout/          # 布局组件（Sidebar, Header）✅
-│   │   │   ├── datasource/      # 数据源表单组件 ✅
+│   │   │   ├── layout/          # 布局组件（Sidebar, Header）
 │   │   │   ├── dag-editor/      # DAG 编辑器组件（ReactFlow）
 │   │   │   ├── sql-editor/      # SQL 编辑器组件（Monaco）
 │   │   │   └── common/          # 通用组件
 │   │   │
 │   │   ├── lib/                 # 工具库
-│   │   │   ├── aws/             # AWS SDK 封装 ✅
-│   │   │   │   ├── glue.ts      # Glue API ✅
+│   │   │   ├── aws/             # AWS SDK 封装
+│   │   │   │   ├── glue.ts      # Glue API
 │   │   │   │   ├── dms.ts       # DMS API
-│   │   │   │   ├── redshift.ts  # Redshift Data API ✅
+│   │   │   │   ├── redshift.ts  # Redshift Data API
 │   │   │   │   ├── mwaa.ts      # MWAA (Airflow) API
-│   │   │   │   ├── dynamodb.ts  # DynamoDB 操作 ✅
-│   │   │   │   ├── cognito.ts   # Cognito 认证 ✅
-│   │   │   │   ├── lakeformation.ts # Lake Formation 权限 API ✅
-│   │   │   │   └── sns.ts       # SNS 通知 ✅
+│   │   │   │   ├── dynamodb.ts  # DynamoDB 操作
+│   │   │   │   └── cognito.ts   # Cognito 认证
 │   │   │   ├── openmetadata/    # OpenMetadata API 封装
 │   │   │   └── utils/           # 通用工具
 │   │   │
-│   │   └── types/               # TypeScript 类型定义 ✅
-│   │       ├── datasource.ts    # ✅
-│   │       ├── sync-task.ts     # ✅
-│   │       ├── workflow.ts      # ✅
-│   │       └── permission.ts    # ✅ (含 Approval, AuditLog, Role)
+│   │   └── types/               # TypeScript 类型定义
+│   │       ├── datasource.ts
+│   │       ├── sync-task.ts
+│   │       ├── workflow.ts
+│   │       └── schedule.ts
 │   │
 │   └── public/                  # 静态资源
 │
-├── infra/                       # CDK 基础设施代码 ✅ 已初始化
+├── infra/                       # CDK 基础设施代码
 │   ├── package.json
 │   ├── bin/
-│   │   └── app.ts               # CDK App 入口 ✅
+│   │   └── app.ts               # CDK App 入口
 │   ├── lib/
-│   │   ├── vpc-stack.ts         # VPC + 网络 ✅
-│   │   ├── auth-stack.ts        # Cognito + 4 RBAC Groups ✅
-│   │   ├── database-stack.ts    # DynamoDB 6 张表 ✅
+│   │   ├── vpc-stack.ts         # VPC + 网络
+│   │   ├── auth-stack.ts        # Cognito
+│   │   ├── database-stack.ts    # DynamoDB Tables
 │   │   ├── redshift-stack.ts    # Redshift Serverless
 │   │   ├── s3-tables-stack.ts   # S3 Table Bucket
 │   │   ├── mwaa-stack.ts        # MWAA Environment
-│   │   ├── lakeformation-stack.ts # Lake Formation 权限配置
 │   │   ├── platform-stack.ts    # ECS Fargate (平台部署)
 │   │   └── openmetadata-stack.ts # OpenMetadata on ECS
 │   └── cdk.json
@@ -203,47 +189,6 @@ Attributes:
   - updatedAt: String (ISO)
 ```
 
-### 2.5 Approvals 表（审批流）
-
-```
-Table: bgp-approvals
-PK: approvalId (String, ULID)
-SK: createdAt (String, ISO)
-
-GSI: requesterId-index (requesterId + createdAt)
-GSI: approverId-index (approverId + status)
-
-Attributes:
-  - type: String              # datasource-online | sync-publish | sql-execute | permission-request
-  - requesterId: String       # 申请人
-  - approverId: String        # 审批人
-  - status: String            # pending | approved | rejected
-  - resourceType: String      # datasource | sync-task | redshift-sql | table-permission
-  - resourceId: String        # 关联资源 ID
-  - detail: Map               # 审批详情（JSON）
-  - comment: String           # 审批意见
-  - createdAt: String (ISO)
-  - resolvedAt: String (ISO)
-```
-
-### 2.6 AuditLogs 表（操作审计）
-
-```
-Table: bgp-audit-logs
-PK: userId (String)
-SK: timestamp (String, ISO)
-
-GSI: action-index (action + timestamp)
-
-Attributes:
-  - action: String            # create | update | delete | execute | approve | reject
-  - resourceType: String      # datasource | sync-task | workflow | redshift-sql | permission
-  - resourceId: String
-  - detail: Map               # 操作详情
-  - ip: String                # 操作 IP
-  - timestamp: String (ISO)
-```
-
 ## 3. API 设计概览
 
 ```
@@ -310,108 +255,9 @@ GET    /api/governance/search        # 数据资产搜索
 GET    /api/governance/lineage/:fqn  # 血缘查询
 GET    /api/governance/tables        # 表目录
 GET    /api/governance/tags          # 标签/分类
-
-# 权限管控
-GET    /api/permissions/roles            # 角色列表
-POST   /api/permissions/roles            # 创建角色
-GET    /api/permissions/users            # 用户列表及角色
-PUT    /api/permissions/users/:id/role   # 分配角色
-GET    /api/permissions/data             # 数据权限列表（库/表/列）
-POST   /api/permissions/data/grant       # 授权（调 Lake Formation）
-POST   /api/permissions/data/revoke      # 撤权（调 Lake Formation）
-GET    /api/permissions/data/:userId     # 查询用户数据权限
-
-# 审批流
-GET    /api/approvals                    # 审批列表（待审批/已审批）
-POST   /api/approvals                    # 发起审批
-GET    /api/approvals/:id                # 审批详情
-POST   /api/approvals/:id/approve        # 通过
-POST   /api/approvals/:id/reject         # 驳回
-
-# 审计日志
-GET    /api/audit-logs                   # 审计日志列表（支持筛选）
-GET    /api/audit-logs/export            # 导出审计日志
 ```
 
-## 4. 权限管控设计
-
-### 4.1 平台层权限（RBAC）
-
-基于 Cognito Groups 实现角色控制：
-
-```
-角色体系：
-├── Admin（管理员）
-│   - 全部权限
-│   - 用户管理、角色分配
-│   - 审批流配置
-│
-├── Developer（开发者）
-│   - 创建/编辑数据源、同步任务、工作流
-│   - 执行 SQL（开发环境）
-│   - 查看监控和日志
-│   - 生产发布需审批
-│
-├── Analyst（数据分析师）
-│   - 只读数据源
-│   - 执行 SQL（只读查询）
-│   - 查看数据目录和血缘
-│   - 不能创建/修改任务
-│
-└── Viewer（只读用户）
-    - 查看监控大盘
-    - 查看数据目录
-    - 无执行权限
-```
-
-### 4.2 数据层权限（字段级别）
-
-通过 AWS Lake Formation 实现，不自建：
-
-```
-Lake Formation 权限层级：
-├── 库级别：授权用户可访问哪些数据库
-├── 表级别：授权用户可访问哪些表
-├── 列级别：授权用户可访问哪些字段（列级过滤）
-├── 行级别：按条件过滤行（可选，后续扩展）
-└── 敏感字段脱敏：通过 Lake Formation Tag + 列掩码实现
-```
-
-平台集成方式：
-- 平台 UI 提供权限配置页面（选用户 → 选库/表/列 → 授权）
-- 后端调 Lake Formation API（`grant-permissions` / `revoke-permissions`）
-- Redshift 通过 Lake Formation 集成自动继承列级权限
-- S3 Tables (Iceberg) 通过 Glue Data Catalog + Lake Formation 控制
-
-### 4.3 操作审批流
-
-```
-审批场景：
-├── 数据源上线 → Admin 审批
-├── 同步任务发布到生产 → Admin 审批
-├── 生产环境 SQL 执行 → Admin 审批
-└── 权限申请（用户申请访问某库/表/列）→ 数据 Owner 审批
-
-实现方式：
-├── 审批记录存 DynamoDB（bgp-approvals 表）
-├── 审批通知通过 SNS → 邮件/钉钉
-└── 状态机：pending → approved/rejected → executed
-```
-
-### 4.4 操作审计
-
-```
-审计内容：
-├── 谁在什么时间创建/修改/删除了数据源
-├── 谁在什么时间执行了什么 SQL
-├── 谁在什么时间触发/停止了任务
-├── 谁在什么时间修改了权限配置
-└── 谁在什么时间审批了什么请求
-
-存储：DynamoDB（bgp-audit-logs 表）+ 可选归档到 S3
-```
-
-## 5. OpenMetadata 集成方案
+## 4. OpenMetadata 集成方案
 
 ### 部署
 - ECS Fargate 部署 OpenMetadata Server + Ingestion

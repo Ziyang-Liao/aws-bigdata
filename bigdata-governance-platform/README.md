@@ -5,21 +5,19 @@
 ## 架构总览
 
 ```
-                              ┌─────────────────────────┐
-                              │     CloudFront (CDN)     │
-                              └────────────┬────────────┘
-                                           │
-                              ┌────────────▼────────────┐
-                              │   Platform (ECS Fargate) │
-                              │   Next.js Full-Stack App │
-                              └────────────┬────────────┘
-                                           │
-    ┌──────────┬──────────┬───────┬────────┼────────┬───────────┬──────────────┐
-    ▼          ▼          ▼       ▼        ▼        ▼           ▼              ▼
- Cognito   DynamoDB    MWAA   Glue API  Redshift  Lake        OpenMetadata   SNS
- (Auth     (Metadata   (调度)  (ETL)    (Data     Formation   (ECS Fargate   (告警
-  +RBAC)   +审批+审计)          +DMS     API)     (字段级      血缘/目录      通知)
-                               +Zero-ETL          权限控制)    /质量)
+                         ┌─────────────────────────┐
+                         │     CloudFront (CDN)     │
+                         └────────────┬────────────┘
+                                      │
+                         ┌────────────▼────────────┐
+                         │   Platform (ECS Fargate) │
+                         │   Next.js Full-Stack App │
+                         └────────────┬────────────┘
+                                      │
+          ┌───────────┬───────────┬───┴────┬──────────┬──────────┐
+          ▼           ▼           ▼        ▼          ▼          ▼
+       Cognito    DynamoDB     MWAA    Glue API   Redshift   OpenMetadata
+      (Auth)    (Metadata)  (Schedule) (ETL)    (Data API)  (ECS Fargate)
 ```
 
 ## 核心功能模块
@@ -34,34 +32,6 @@
 | 任务监控 | 运行状态、日志、告警 | CloudWatch + Glue/Airflow API |
 | 数据治理 | 血缘(列级)、数据目录、数据地图、数据质量 | OpenMetadata |
 | 用户管理 | 认证、RBAC 权限 | Cognito |
-| 权限管控 | 字段级数据权限、角色管理 | Lake Formation + Cognito Groups |
-| 审批流 | 数据源上线/任务发布/SQL执行/权限申请审批 | DynamoDB + SNS |
-| 操作审计 | 全操作记录、查询、导出 | DynamoDB |
-
-## 权限管控体系
-
-```
-平台层（RBAC）
-├── Admin       - 全部权限 + 用户管理 + 审批
-├── Developer   - 创建/编辑任务，生产发布需审批
-├── Analyst     - 只读查询 + 数据目录浏览
-└── Viewer      - 只读监控大盘
-
-数据层（字段级，Lake Formation）
-├── 库级别     - 授权可访问的数据库
-├── 表级别     - 授权可访问的表
-├── 列级别     - 授权可访问的字段（敏感字段过滤）
-└── 敏感脱敏   - Lake Formation Tag + 列掩码
-
-流程层（审批）
-├── 数据源上线       → Admin 审批
-├── 同步任务发布生产  → Admin 审批
-├── 生产 SQL 执行    → Admin 审批
-└── 数据权限申请     → 数据 Owner 审批
-
-审计层
-└── 全操作记录（谁/何时/做了什么）→ DynamoDB + 可导出
-```
 
 ## 技术栈
 
@@ -74,9 +44,7 @@
 | 后端 API | Next.js API Routes + boto3 (Lambda) | AWS SDK 调用 |
 | 元数据存储 | DynamoDB | 任务/数据源/调度配置 |
 | 用户认证 | Amazon Cognito | 免自建用户系统 |
-| 数据权限 | AWS Lake Formation | 库/表/列级权限控制 |
 | 数据治理 | OpenMetadata (ECS Fargate) | 血缘/目录/质量 |
-| 告警通知 | Amazon SNS | 邮件/钉钉/企业微信 Webhook |
 | 部署 | ECS Fargate + CloudFront | 容器化部署 |
 | IaC | CDK (TypeScript) | 基础设施即代码 |
 
@@ -97,50 +65,4 @@
 调度：MWAA (Airflow) 统一调度
 监控：CloudWatch + 平台聚合展示
 治理：OpenMetadata 自动采集血缘
-权限：Lake Formation 统一管控（库/表/列级），Redshift + S3 Tables 自动继承
-审批：数据源上线 / 任务发布 / SQL 执行 / 权限申请 → 审批通过后执行
-审计：全操作记录写入 DynamoDB，可查询可导出
 ```
-
-## 开发进度
-
-| Phase | 内容 | 状态 |
-|-------|------|------|
-| Phase 0 | 项目初始化、架构设计 | ✅ 已完成 |
-| Phase 1 | 基础设施 + 数据源管理 | ✅ 核心已完成 |
-| Phase 2 | 数据同步模块 | ✅ 核心已完成 |
-| Phase 3 | ETL 编排 + 调度 | ⏳ 待开始 |
-| Phase 4 | Redshift 任务 + 监控 | 🔲 未开始 |
-| Phase 5 | 权限管控 | 🔲 未开始 |
-| Phase 6 | 数据治理 (OpenMetadata) | 🔲 未开始 |
-| Phase 7 | 完善 + 扩展 | 🔲 未开始 |
-
-详细进度请查看 [ROADMAP.md](./ROADMAP.md)
-
-## 快速启动
-
-```bash
-# 克隆仓库
-git clone git@github.com:Ziyang-Liao/aws-bigdata.git
-cd aws-bigdata/bigdata-governance-platform
-
-# 启动前端开发
-cd platform
-npm install
-npm run dev
-# 访问 http://localhost:3000
-
-# 部署基础设施（需要 AWS 凭证）
-cd ../infra
-npm install
-npx cdk deploy --all
-```
-
-## 项目文档
-
-| 文件 | 说明 |
-|------|------|
-| [README.md](./README.md) | 项目说明、架构总览 |
-| [ROADMAP.md](./ROADMAP.md) | 分阶段实施计划、进度追踪 |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | 技术架构、DB Schema、API 设计 |
-| [DEVLOG.md](./DEVLOG.md) | 开发日志，每次会话记录 |

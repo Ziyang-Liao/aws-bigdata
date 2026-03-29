@@ -1,154 +1,58 @@
 # 开发日志 / Development Log
 
-> **项目位置**: `aws-bigdata/bigdata-governance-platform/`
-> **仓库地址**: https://github.com/Ziyang-Liao/aws-bigdata.git
->
-> **每次新会话开始时，请先阅读此文件最后一条记录的「下次继续」部分。**
-> **然后阅读 `ROADMAP.md` 查看整体进度。**
+每次开发会话记录在此文件，方便下次继续。
 
 ---
 
-## 2026-03-28 Session 1: 项目规划与架构设计
-
-### 背景
-需要构建一个大数据开发治理平台，实现：
-- 数据从 MySQL/RDS 同步到 S3 Tables (Iceberg)，支持分区配置
-- 数据增量更新到 Redshift，支持排序键/分布键配置
-- 也可通过 Redshift 外部表增量拉取到物理表
-- 可视化 ETL 编排（拖拉拽）
-- 任务调度与监控
-- 数据血缘（列级）、数据地图、数据目录
-
-### 方案调研与决策
-
-1. **排除 DataSphere Studio (DSS)**
-   - 原因：完全基于 Hadoop 生态，不支持 AWS S3 Tables/Redshift
-   - 数据血缘模块（DataModelCenter）标注开发中但至今未发布
-   - 社区活跃度低
-
-2. **排除纯 SageMaker Unified Studio 方案**
-   - 原因：数据血缘/数据地图能力不足
-   - 但其 Visual ETL 和 Visual Workflow 可作为底层引擎
-
-3. **最终方案：自建 Web 门户 + AWS 托管服务 + OpenMetadata**
-   - 自建部分：UI 层 + API 编排层（Next.js 全栈）
-   - 底层引擎：AWS Glue / DMS / Zero-ETL / MWAA / Redshift
-   - 数据治理：OpenMetadata（部署在 ECS Fargate）
-   - 数据同步双通道：Zero-ETL（优先）+ Glue ETL（兜底）
+## 2026-03-28 Session 1: 项目规划
 
 ### 完成内容
-- [x] 确定整体架构方案
-- [x] 确定技术栈
-- [x] 创建项目文档：
-  - `README.md` - 项目说明 + 架构总览
-  - `ROADMAP.md` - 分阶段实施计划（含 checkbox 追踪）
-  - `ARCHITECTURE.md` - 技术架构（项目结构、DB Schema、API 设计、OpenMetadata 集成）
-  - `DEVLOG.md` - 本文件
-- [x] 推送到 GitHub 仓库
+1. 确定整体架构方案：自建 Web 门户 + AWS 托管服务 + OpenMetadata
+2. 调研并排除了 DataSphere Studio（不适合 AWS 生态）
+3. 确定技术栈：Next.js + Ant Design + ReactFlow + Monaco Editor
+4. 创建项目规划文档：
+   - `README.md` - 项目说明 + 架构总览
+   - `ROADMAP.md` - 分阶段实施计划（含 checkbox 追踪）
+   - `ARCHITECTURE.md` - 技术架构详细设计（项目结构、DB Schema、API 设计）
+   - `DEVLOG.md` - 本文件
 
-### 关键技术栈
-| 组件 | 用途 |
-|------|------|
-| Next.js 14 + Ant Design 5 | 全栈 Web 应用 |
-| ReactFlow | DAG 拖拉拽编辑器 |
-| Monaco Editor | SQL 编辑器 |
-| AWS Glue | ETL 执行引擎 |
-| AWS DMS / Zero-ETL | 数据同步 |
-| MWAA (Airflow) | 工作流调度 |
-| Redshift Data API | SQL 执行 |
-| OpenMetadata | 数据治理（血缘/目录/质量） |
-| DynamoDB | 平台元数据存储 |
-| Cognito | 用户认证 |
-| CDK | 基础设施即代码 |
+### 关键决策
+- 底层引擎全部用 AWS 托管服务，不自建
+- 数据同步双通道：Zero-ETL（优先）+ Glue ETL（兜底）
+- 数据治理直接集成 OpenMetadata，不自建血缘/目录
+- 一个人开发，全栈 Next.js，不拆微服务
+- 元数据存 DynamoDB，免运维
 
 ### 下次继续
-- [ ] 初始化 Next.js 项目（`platform/` 目录）
-- [ ] 初始化 CDK 项目（`infra/` 目录）
+- [ ] 创建 GitHub 仓库并推送以上文档
+- [ ] 初始化 Next.js 项目（platform/ 目录）
+- [ ] 初始化 CDK 项目（infra/ 目录）
 - [ ] 搭建基础布局（侧边栏 + 顶栏 + 路由）
+- [ ] 开始 Phase 1.3：数据源管理模块
+
+### 备注
+- 用户 GitHub 仓库名：bigdata-governance-platform
+- 用户需要先执行 `gh auth login` 登录 GitHub
+- 或者在 https://github.com/new 手动创建仓库
+
+---
+
+## 2026-03-29 Session 2: 项目脚手架搭建
+
+### 完成内容
+1. 初始化 Next.js 14 项目（platform/）：手动创建，安装 next@14 + react + antd + tailwindcss@3
+2. 搭建基础布局：侧边栏（8个导航项）+ 顶栏（用户头像）+ Ant Design ConfigProvider
+3. 创建所有模块占位页面：首页(Dashboard)、数据源、同步、ETL编排、调度、Redshift、监控、治理
+4. 初始化 CDK 项目（infra/）：VpcStack + DatabaseStack
+5. CDK DatabaseStack 定义 4 张 DynamoDB 表（PAY_PER_REQUEST）
+6. Next.js build 验证通过，CDK tsc 编译通过
+
+### 关键决策
+- 后续所有 AWS 资源使用 `temp-account` profile 部署（账号 470377450205）
+- tailwindcss 使用 v3（v4 与 Next.js 14 不兼容）
+- Ant Design preflight 关闭（corePlugins.preflight: false）避免与 Tailwind 冲突
+
+### 下次继续
+- [ ] CDK 部署 VPC + DynamoDB 到 temp-account
+- [ ] 开始 Phase 1.2：Cognito 用户认证模块
 - [ ] 开始 Phase 1.3：数据源管理模块（CRUD + 连通性测试）
-
-### 启动命令备忘
-```bash
-# 克隆仓库
-git clone https://github.com/Ziyang-Liao/aws-bigdata.git
-cd aws-bigdata/bigdata-governance-platform
-
-# 启动开发（项目初始化后可用）
-cd platform && npm run dev
-
-# CDK 部署（基础设施初始化后可用）
-cd infra && npx cdk deploy --all
-```
-
----
-
-## 2026-03-28 Session 1 (续): 项目初始化
-
-### 完成内容
-- [x] 初始化 Next.js 14 项目（`platform/`）
-- [x] 安装核心依赖：Ant Design 5, ReactFlow, Monaco Editor, AWS SDK
-- [x] 搭建基础布局（侧边栏导航 + 顶栏用户菜单）
-- [x] 创建 Dashboard 首页（统计卡片）
-- [x] 创建登录页
-- [x] 创建 9 个模块占位页面（数据源/同步/编排/调度/Redshift/监控/权限/审计/治理）
-- [x] 创建 TypeScript 类型定义（DataSource, SyncTask, Workflow, Permission）
-- [x] 创建 AWS SDK 封装（DynamoDB, Glue, Redshift, Cognito, Lake Formation, SNS）
-- [x] 初始化 CDK 项目（`infra/`）
-- [x] CDK: VPC Stack（2 AZ, public + private subnets）
-- [x] CDK: Database Stack（6 张 DynamoDB 表）
-- [x] CDK: Auth Stack（Cognito User Pool + 4 个 RBAC Group）
-- [x] Next.js build 验证通过
-- [x] 全部推送到 GitHub
-
-### 当前项目结构
-```
-bigdata-governance-platform/
-├── README.md / ROADMAP.md / ARCHITECTURE.md / DEVLOG.md
-├── platform/          # Next.js 全栈应用（已初始化，可 build）
-│   └── src/
-│       ├── app/       # 11 个页面路由
-│       ├── components/layout/  # AppLayout 侧边栏布局
-│       ├── lib/aws/   # 6 个 AWS SDK 封装
-│       └── types/     # 4 个类型定义文件
-└── infra/             # CDK 基础设施（3 个 Stack）
-    └── lib/           # vpc / database / auth
-```
-
-### 下次继续
-- [ ] 开始 Phase 2：数据同步模块
-  - [ ] 同步任务 CRUD API（`/api/sync`）
-  - [ ] 同步任务配置页面（源端选择 → 目标端配置 → 分区/排序键）
-  - [ ] 同步引擎对接（Zero-ETL / Glue Job / DMS）
-  - [ ] 同步任务列表 + 状态监控
-- [ ] 启动开发服务器命令：`cd platform && npm run dev`
-- [ ] 所有文档已同步更新（README / ROADMAP / ARCHITECTURE / DEVLOG）
-
----
-
-## 2026-03-29 Session 2: 数据同步模块
-
-### 完成内容
-- [x] 同步任务 CRUD API（`/api/sync` + `/api/sync/[id]`）
-- [x] 同步任务启动 API（`/api/sync/[id]/start`）— 自动创建 Glue Job 并启动
-- [x] 同步任务停止 API（`/api/sync/[id]/stop`）— 批量停止运行中的 Job Runs
-- [x] 运行历史 API（`/api/sync/[id]/runs`）— 从 Glue Job Runs 拉取
-- [x] Glue PySpark 脚本生成器（`lib/sync/glue-script-generator.ts`）
-  - 支持 MySQL → S3 Tables (Iceberg) 带分区
-  - 支持 MySQL → Redshift 带 MERGE/UPSERT
-  - 支持 append / overwrite / merge 三种写入模式
-- [x] 同步任务列表页面（状态、通道、目标、启动/停止/删除）
-- [x] 新建同步任务页面（4 步向导：基本信息 → 源端 → 目标 → 高级选项）
-  - 同步通道选择（Glue ETL / Zero-ETL / DMS）
-  - 分区字段配置
-  - Redshift 排序键/分布键/分布方式配置
-  - 写入模式 + Merge 主键配置
-- [x] 同步任务详情页面（配置展示 + 运行历史表格）
-- [x] 全部 build 通过
-
-### 下次继续
-- [ ] 开始 Phase 3：ETL 编排 + 调度
-  - [ ] ReactFlow DAG 编辑器集成
-  - [ ] 节点类型定义（同步节点、SQL 节点、Python 节点、条件分支、通知）
-  - [ ] DAG → Airflow DAG 文件转换
-  - [ ] MWAA 对接（推送 DAG、触发、查询状态）
-  - [ ] 调度配置（Cron 可视化选择器）
