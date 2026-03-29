@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Table, Button, Space, Tag, Popconfirm, message } from "antd";
-import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
+import { PlusOutlined, ReloadOutlined, PlayCircleOutlined, PauseCircleOutlined } from "@ant-design/icons";
 import type { SyncTask } from "@/types/sync-task";
 import SyncTaskModal from "./SyncTaskModal";
 
@@ -23,12 +23,7 @@ export default function SyncPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    try {
-      const res = await fetch("/api/sync");
-      setData(await res.json());
-    } finally {
-      setLoading(false);
-    }
+    try { setData(await (await fetch("/api/sync")).json()); } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -36,6 +31,17 @@ export default function SyncPage() {
   const handleDelete = async (id: string) => {
     await fetch(`/api/sync/${id}`, { method: "DELETE" });
     message.success("已删除");
+    fetchData();
+  };
+
+  const handleToggle = async (id: string, status: string) => {
+    const newStatus = status === "running" ? "stopped" : "running";
+    await fetch(`/api/sync/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    message.success(newStatus === "running" ? "已启动" : "已停止");
     fetchData();
   };
 
@@ -53,6 +59,9 @@ export default function SyncPage() {
       title: "操作", key: "action",
       render: (_: any, record: SyncTask) => (
         <Space>
+          <a onClick={() => handleToggle(record.taskId, record.status)}>
+            {record.status === "running" ? <><PauseCircleOutlined /> 停止</> : <><PlayCircleOutlined /> 启动</>}
+          </a>
           <a onClick={() => { setEditing(record); setModalOpen(true); }}>编辑</a>
           <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.taskId)}>
             <a style={{ color: "red" }}>删除</a>
@@ -74,12 +83,7 @@ export default function SyncPage() {
         </Space>
       </div>
       <Table columns={columns} dataSource={data} rowKey="taskId" loading={loading} />
-      <SyncTaskModal
-        open={modalOpen}
-        editing={editing}
-        onClose={() => setModalOpen(false)}
-        onSuccess={() => { setModalOpen(false); fetchData(); }}
-      />
+      <SyncTaskModal open={modalOpen} editing={editing} onClose={() => setModalOpen(false)} onSuccess={() => { setModalOpen(false); fetchData(); }} />
     </div>
   );
 }
