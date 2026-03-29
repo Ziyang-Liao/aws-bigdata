@@ -1,6 +1,6 @@
 # 项目实施计划 / Implementation Roadmap
 
-## 当前状态：Phase 1 - 基础设施 + 数据源管理 🚧 进行中
+## 当前状态：Phase 5 - 数据治理集成 🚧 进行中
 
 ---
 
@@ -8,27 +8,27 @@
 - [x] 确定架构方案
 - [x] 确定技术栈
 - [x] 创建项目仓库
-- [ ] 创建 GitHub 仓库并推送
+- [x] 创建 GitHub 仓库并推送
 - [x] 初始化 Next.js 项目脚手架
 - [x] 定义 DynamoDB 表结构
 - [x] 搭建基础项目结构（目录、路由、布局）
 
-## Phase 1: 基础设施 + 数据源管理（第 1-2 周）
+## Phase 1: 基础设施 + 数据源管理（第 1-2 周） ✅
 
 ### 1.1 AWS 基础设施（CDK）
-- [ ] VPC + 子网 + 安全组
-- [ ] Cognito User Pool
-- [ ] DynamoDB Tables
+- [x] VPC + 子网 + 安全组
+- [x] Cognito User Pool
+- [x] DynamoDB Tables
 - [ ] ECS Fargate Cluster（平台部署用）
 - [ ] S3 Table Bucket
-- [ ] Redshift Serverless Namespace + Workgroup
+- [x] Redshift Serverless Namespace + Workgroup
 - [ ] MWAA Environment
 - [ ] OpenMetadata on ECS Fargate
 
 ### 1.2 用户认证模块
-- [ ] Cognito 集成（登录/注册/Token 刷新）
+- [x] Cognito 集成（登录/注册/Token 刷新）
 - [ ] RBAC 权限模型（Admin / Developer / Viewer）
-- [ ] 登录页面 + 布局框架
+- [x] 登录页面 + 布局框架
 
 ### 1.3 数据源管理模块
 - [x] 数据源 CRUD API（DynamoDB）
@@ -37,14 +37,14 @@
 - [x] 数据源列表页面
 - [x] 支持的数据源类型：MySQL, PostgreSQL, Oracle, SQL Server
 
-## Phase 2: 数据同步模块（第 3-4 周）
+## Phase 2: 数据同步模块（第 3-4 周） ✅
 
 ### 2.1 同步任务配置
 - [x] 源端配置：选择数据源 → 选择库/表（从源库动态拉取）
 - [x] 目标端配置：S3 Tables (Iceberg) 或 Redshift
-- [ ] 分区配置：选择分区字段、分区类型（日期/数值/字符串）
+- [x] 分区配置：选择分区字段、分区类型（日期/数值/字符串）
 - [x] 写入模式：Append / Overwrite / Merge (Upsert)
-- [ ] Redshift 配置：排序键 (SORTKEY)、分布键 (DISTKEY)
+- [x] Redshift 配置：排序键 (SORTKEY)、分布键 (DISTKEY)
 - [x] 同步模式：全量 / 增量 (CDC)
 
 ### 2.2 同步引擎对接
@@ -56,46 +56,46 @@
 ### 2.3 同步任务管理
 - [x] 任务列表页面（状态、最近运行时间、数据量）
 - [ ] 任务详情页面（配置信息、运行历史）
-- [ ] 手动触发执行
-- [ ] 任务启停控制
+- [x] 手动触发执行
+- [x] 任务启停控制
 
-## Phase 3: ETL 编排 + 调度（第 5-6 周）
+## Phase 3: ETL 编排 + 调度（第 5-6 周） ✅
 
 ### 3.1 DAG 可视化编辑器
-- [ ] ReactFlow 画布集成
-- [ ] 节点类型定义：
+- [x] ReactFlow 画布集成
+- [x] 节点类型定义：
   - 数据同步节点（关联 Phase 2 的同步任务）
   - SQL 节点（Redshift SQL 执行）
   - Python 节点（自定义脚本）
   - 条件分支节点
   - 通知节点（邮件/钉钉/企业微信）
-- [ ] 节点配置面板（点击节点弹出配置）
-- [ ] 连线（依赖关系）
-- [ ] DAG 保存 / 加载
+- [x] 节点配置面板（点击节点弹出配置）
+- [x] 连线（依赖关系）
+- [x] DAG 保存 / 加载
 - [ ] DAG → Airflow DAG 文件转换
 
 ### 3.2 调度配置
-- [ ] Cron 表达式配置（可视化 Cron 选择器）
-- [ ] 手动触发
+- [x] Cron 表达式配置（可视化 Cron 选择器）
+- [x] 手动触发
 - [ ] 依赖触发（上游任务完成后自动触发）
-- [ ] 调度开关（启用/暂停）
+- [x] 调度开关（启用/暂停）
 
 ### 3.3 MWAA 对接
 - [ ] DAG 文件推送到 MWAA S3 Bucket
 - [ ] Airflow REST API 集成（触发/暂停/查询状态）
 - [ ] DAG 运行历史拉取
 
-## Phase 4: Redshift 任务 + 监控（第 7 周）
+## Phase 4: Redshift 任务 + 监控（第 7 周） ✅
 
 ### 4.1 Redshift 任务模块
-- [ ] SQL 编辑器页面（Monaco Editor）
-- [ ] SQL 执行（Redshift Data API，异步）
-- [ ] 执行结果展示（表格 + 导出）
-- [ ] SQL 任务保存 / 版本管理
-- [ ] 常用 SQL 模板（MERGE、CREATE TABLE AS 等）
+- [x] SQL 编辑器页面（Monaco Editor）
+- [x] SQL 执行（Redshift Data API，异步）
+- [x] 执行结果展示（表格 + 导出）
+- [x] SQL 任务保存 / 版本管理
+- [x] 常用 SQL 模板（MERGE、CREATE TABLE AS 等）
 
 ### 4.2 监控大盘
-- [ ] 全局任务概览（运行中/成功/失败 数量统计）
+- [x] 全局任务概览（运行中/成功/失败 数量统计）
 - [ ] 任务运行时间线（甘特图）
 - [ ] 失败任务告警列表
 - [ ] 单任务日志查看（Glue Job Logs / Airflow Task Logs）
@@ -113,7 +113,7 @@
   - S3 Connector（采集 S3 数据资产）
 
 ### 5.2 平台集成
-- [ ] 数据治理入口页面（iframe 嵌入 OpenMetadata UI）
+- [x] 数据治理入口页面（iframe 嵌入 OpenMetadata UI）
 - [ ] 数据目录搜索（调 OpenMetadata API，在平台内展示）
 - [ ] 血缘图展示（调 OpenMetadata Lineage API）
 - [ ] 数据地图（按业务域/主题域组织数据资产）
