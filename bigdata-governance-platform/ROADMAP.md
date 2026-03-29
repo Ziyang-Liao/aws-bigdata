@@ -48,9 +48,9 @@
 - [x] 同步模式：全量 / 增量 (CDC)
 
 ### 2.2 同步引擎对接
-- [ ] Zero-ETL 通道：调 Glue create-integration API
-- [ ] Glue ETL 通道：生成 Glue Job 脚本（PySpark）→ 调 Glue API 创建 Job
-- [ ] DMS 通道：调 DMS API 创建复制任务（CDC 场景）
+- [x] Zero-ETL 通道：调 Glue create-integration API
+- [x] Glue ETL 通道：生成 Glue Job 脚本（PySpark）→ 调 Glue API 创建 Job
+- [x] DMS 通道：调 DMS API 创建复制任务（CDC 场景）
 - [ ] 自动选择通道逻辑（源类型 → 推荐最优通道）
 
 ### 2.3 同步任务管理
@@ -72,7 +72,7 @@
 - [x] 节点配置面板（点击节点弹出配置）
 - [x] 连线（依赖关系）
 - [x] DAG 保存 / 加载
-- [ ] DAG → Airflow DAG 文件转换
+- [x] DAG → Airflow DAG 文件转换
 
 ### 3.2 调度配置
 - [x] Cron 表达式配置（可视化 Cron 选择器）
@@ -81,8 +81,8 @@
 - [x] 调度开关（启用/暂停）
 
 ### 3.3 MWAA 对接
-- [ ] DAG 文件推送到 MWAA S3 Bucket
-- [ ] Airflow REST API 集成（触发/暂停/查询状态）
+- [x] DAG 文件推送到 MWAA S3 Bucket
+- [x] Airflow REST API 集成（触发/暂停/查询状态）
 - [ ] DAG 运行历史拉取
 
 ## Phase 4: Redshift 任务 + 监控（第 7 周） ✅
@@ -97,8 +97,8 @@
 ### 4.2 监控大盘
 - [x] 全局任务概览（运行中/成功/失败 数量统计）
 - [ ] 任务运行时间线（甘特图）
-- [ ] 失败任务告警列表
-- [ ] 单任务日志查看（Glue Job Logs / Airflow Task Logs）
+- [x] 失败任务告警列表
+- [x] 单任务日志查看（Glue Job Logs / Airflow Task Logs）
 - [ ] 告警通知配置（SNS → 邮件/钉钉/企业微信 Webhook）
 
 ## Phase 5: 数据治理 - OpenMetadata 集成（第 8-9 周）
