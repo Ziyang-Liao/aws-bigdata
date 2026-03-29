@@ -31,21 +31,21 @@
 - [ ] 登录页面 + 布局框架
 
 ### 1.3 数据源管理模块
-- [ ] 数据源 CRUD API（DynamoDB）
-- [ ] 数据源配置页面（表单：host/port/user/password/database）
-- [ ] 连通性测试（调 Glue Connection API 或 DMS test-connection）
-- [ ] 数据源列表页面
-- [ ] 支持的数据源类型：MySQL, PostgreSQL, Oracle, SQL Server
+- [x] 数据源 CRUD API（DynamoDB）
+- [x] 数据源配置页面（表单：host/port/user/password/database）
+- [x] 连通性测试（调 Glue Connection API 或 DMS test-connection）
+- [x] 数据源列表页面
+- [x] 支持的数据源类型：MySQL, PostgreSQL, Oracle, SQL Server
 
 ## Phase 2: 数据同步模块（第 3-4 周）
 
 ### 2.1 同步任务配置
-- [ ] 源端配置：选择数据源 → 选择库/表（从源库动态拉取）
-- [ ] 目标端配置：S3 Tables (Iceberg) 或 Redshift
+- [x] 源端配置：选择数据源 → 选择库/表（从源库动态拉取）
+- [x] 目标端配置：S3 Tables (Iceberg) 或 Redshift
 - [ ] 分区配置：选择分区字段、分区类型（日期/数值/字符串）
-- [ ] 写入模式：Append / Overwrite / Merge (Upsert)
+- [x] 写入模式：Append / Overwrite / Merge (Upsert)
 - [ ] Redshift 配置：排序键 (SORTKEY)、分布键 (DISTKEY)
-- [ ] 同步模式：全量 / 增量 (CDC)
+- [x] 同步模式：全量 / 增量 (CDC)
 
 ### 2.2 同步引擎对接
 - [ ] Zero-ETL 通道：调 Glue create-integration API
@@ -54,7 +54,7 @@
 - [ ] 自动选择通道逻辑（源类型 → 推荐最优通道）
 
 ### 2.3 同步任务管理
-- [ ] 任务列表页面（状态、最近运行时间、数据量）
+- [x] 任务列表页面（状态、最近运行时间、数据量）
 - [ ] 任务详情页面（配置信息、运行历史）
 - [ ] 手动触发执行
 - [ ] 任务启停控制
