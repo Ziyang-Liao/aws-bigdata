@@ -35,13 +35,11 @@ export default function SyncPage() {
   };
 
   const handleToggle = async (id: string, status: string) => {
-    const newStatus = status === "running" ? "stopped" : "running";
-    await fetch(`/api/sync/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
-    });
-    message.success(newStatus === "running" ? "已启动" : "已停止");
+    const action = status === "running" ? "stop" : "start";
+    const res = await fetch(`/api/sync/${id}/${action}`, { method: "POST" });
+    const data = await res.json();
+    if (data.error) { message.error(data.error); return; }
+    message.success(action === "start" ? "已启动" : "已停止");
     fetchData();
   };
 

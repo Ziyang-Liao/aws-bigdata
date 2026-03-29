@@ -10,9 +10,12 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
+    "@aws-sdk/client-cloudwatch-logs": "^3.1019.0",
+    "@aws-sdk/client-database-migration-service": "^3.1019.0",
     "@aws-sdk/client-dynamodb": "^3.1019.0",
     "@aws-sdk/client-glue": "^3.1019.0",
     "@aws-sdk/client-redshift-data": "^3.1019.0",
+    "@aws-sdk/client-s3": "^3.1019.0",
     "@aws-sdk/lib-dynamodb": "^3.1019.0",
     "@monaco-editor/react": "^4.7.0",
     "amazon-cognito-identity-js": "^6.3.16",

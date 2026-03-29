@@ -61,6 +61,17 @@ export default function WorkflowPage() {
       render: (_: any, record: Workflow) => (
         <Space>
           <a onClick={() => router.push(`/workflow/${record.workflowId}`)}>编辑 DAG</a>
+          <a onClick={async () => {
+            const res = await fetch(`/api/workflow/${record.workflowId}/publish`, { method: "POST" });
+            const data = await res.json();
+            data.error ? message.error(data.error) : message.success("已发布到 Airflow");
+            fetchData();
+          }}>发布</a>
+          <a onClick={async () => {
+            const res = await fetch(`/api/workflow/${record.workflowId}/trigger`, { method: "POST" });
+            const data = await res.json();
+            data.error ? message.error(data.error) : message.success("已触发运行");
+          }}>触发</a>
           <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.workflowId)}>
             <a style={{ color: "red" }}>删除</a>
           </Popconfirm>
