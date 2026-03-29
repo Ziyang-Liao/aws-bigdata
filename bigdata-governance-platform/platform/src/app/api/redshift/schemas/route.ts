@@ -5,7 +5,7 @@ const client = new RedshiftDataClient({ region: process.env.AWS_REGION || "us-ea
 
 async function runQuery(sql: string, workgroup: string, database: string) {
   const { Id } = await client.send(new ExecuteStatementCommand({ Sql: sql, WorkgroupName: workgroup, Database: database }));
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, 1000));
     const desc = await client.send(new DescribeStatementCommand({ Id }));
     if (desc.Status === "FINISHED") {
@@ -22,14 +22,39 @@ export async function GET(req: NextRequest) {
   const database = req.nextUrl.searchParams.get("database") || "dev";
 
   try {
-    const schemas = await runQuery("SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('information_schema','pg_catalog','pg_internal') ORDER BY schema_name;", workgroup, database);
-    const tables = await runQuery("SELECT schemaname, tablename, tableowner FROM pg_tables WHERE schemaname NOT IN ('information_schema','pg_catalog','pg_internal') ORDER BY schemaname, tablename;", workgroup, database);
+    // Single query to get schemas + tables + columns together
+    const rows = await runQuery(`
+      SELECT t.schemaname, t.tablename, t.tableowner,
+             c.column_name, c.data_type, c.ordinal_position
+      FROM pg_tables t
+      LEFT JOIN information_schema.columns c
+        ON c.table_schema = t.schemaname AND c.table_name = t.tablename
+      WHERE t.schemaname NOT IN ('information_schema','pg_catalog','pg_internal','pg_automv')
+      ORDER BY t.schemaname, t.tablename, c.ordinal_position
+    `, workgroup, database);
+
+    // Build structured response
+    const schemaSet = new Set<string>();
+    const tableMap: Record<string, { schema: string; table: string; owner: string; columns: any[] }> = {};
+
+    for (const r of rows) {
+      const schema = String(r[0]);
+      const table = String(r[1]);
+      const key = `${schema}.${table}`;
+      schemaSet.add(schema);
+      if (!tableMap[key]) {
+        tableMap[key] = { schema, table, owner: String(r[2]), columns: [] };
+      }
+      if (r[3]) {
+        tableMap[key].columns.push({ name: String(r[3]), type: String(r[4]), position: r[5] });
+      }
+    }
 
     return NextResponse.json({
-      schemas: schemas.map((r) => ({ name: r[0] })),
-      tables: tables.map((r) => ({ schema: r[0], table: r[1], owner: r[2] })),
+      schemas: Array.from(schemaSet).map((s) => ({ name: s })),
+      tables: Object.values(tableMap),
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ schemas: [], tables: [], error: err.message }, { status: 200 });
   }
 }

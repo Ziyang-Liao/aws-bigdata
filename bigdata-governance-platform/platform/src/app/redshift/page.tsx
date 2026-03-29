@@ -31,8 +31,11 @@ export default function RedshiftPage() {
   const [schemas, setSchemas] = useState<any>(null);
   const [loadingSchema, setLoadingSchema] = useState(false);
 
+  const [databases, setDatabases] = useState<string[]>(["dev"]);
+
   const fetchTasks = () => fetch("/api/redshift/tasks").then((r) => r.json()).then(setSavedTasks);
   const fetchWorkgroups = () => fetch("/api/redshift/connections").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setWorkgroups(d); });
+  const fetchDatabases = (wg: string) => fetch(`/api/redshift/databases?workgroup=${wg}`).then((r) => r.json()).then((d: any[]) => { if (d.length) setDatabases(d.map((x) => x.name)); });
 
   const fetchSchemas = async () => {
     setLoadingSchema(true);
@@ -42,7 +45,7 @@ export default function RedshiftPage() {
     } finally { setLoadingSchema(false); }
   };
 
-  useEffect(() => { fetchTasks(); fetchWorkgroups(); }, []);
+  useEffect(() => { fetchTasks(); fetchWorkgroups(); fetchDatabases(selectedWg); }, []);
 
   const handleExecute = async () => {
     setRunning(true); setResult(null); setError("");
@@ -77,8 +80,12 @@ export default function RedshiftPage() {
   const schemaTreeData = schemas?.schemas?.map((s: any) => ({
     title: <span>📁 {s.name}</span>, key: s.name, selectable: false,
     children: schemas.tables?.filter((t: any) => t.schema === s.name).map((t: any) => ({
-      title: <Space><span>📋 {t.table}</span><Tag style={{ fontSize: 10 }}>{t.owner}</Tag></Space>,
-      key: `${s.name}.${t.table}`, isLeaf: true,
+      title: <Space><span>📋 {t.table}</span><Tag style={{ fontSize: 10 }}>{t.columns?.length || 0} 列</Tag></Space>,
+      key: `${s.name}.${t.table}`, selectable: true,
+      children: t.columns?.map((c: any) => ({
+        title: <span style={{ fontSize: 12 }}><code>{c.name}</code> <Tag style={{ fontSize: 10 }}>{c.type}</Tag></span>,
+        key: `${s.name}.${t.table}.${c.name}`, isLeaf: true, selectable: false,
+      })) || [],
     })) || [],
   })) || [];
 
@@ -90,9 +97,10 @@ export default function RedshiftPage() {
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space wrap>
           <span style={{ fontWeight: 500 }}>连接配置:</span>
-          <Select value={selectedWg} onChange={setSelectedWg} style={{ width: 200 }} placeholder="Workgroup"
+          <Select value={selectedWg} onChange={(v) => { setSelectedWg(v); fetchDatabases(v); setSchemas(null); }} style={{ width: 200 }} placeholder="Workgroup"
             options={workgroups.length > 0 ? workgroups.map((w) => ({ label: `${w.workgroupName} (${w.status})`, value: w.workgroupName })) : [{ label: "bgp-workgroup", value: "bgp-workgroup" }]} />
-          <Select value={selectedDb} onChange={setSelectedDb} style={{ width: 140 }} options={[{ label: "dev", value: "dev" }, { label: "sample_data_dev", value: "sample_data_dev" }]} />
+          <Select value={selectedDb} onChange={setSelectedDb} style={{ width: 140 }}
+            options={databases.map((d) => ({ label: d, value: d }))} />
           <Button icon={<ReloadOutlined />} onClick={fetchSchemas} loading={loadingSchema}>加载 Schema</Button>
           {workgroups.find((w) => w.workgroupName === selectedWg)?.endpoint && (
             <Tag color="green">Endpoint: {workgroups.find((w) => w.workgroupName === selectedWg)?.endpoint}</Tag>
