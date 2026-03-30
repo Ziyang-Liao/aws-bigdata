@@ -9,4 +9,5 @@ export const TABLES = {
   SYNC_TASKS: "bgp-sync-tasks",
   WORKFLOWS: "bgp-workflows",
   REDSHIFT_TASKS: "bgp-redshift-tasks",
+  TASK_RUNS: "bgp-task-runs",
 } as const;
