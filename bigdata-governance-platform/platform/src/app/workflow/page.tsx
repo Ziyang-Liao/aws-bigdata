@@ -48,8 +48,16 @@ export default function WorkflowPage() {
   };
 
   const columns = [
-    { title: "工作流名称", dataIndex: "name", key: "name" },
-    { title: "描述", dataIndex: "description", key: "description" },
+    { title: "工作流名称", dataIndex: "name", key: "name", render: (v: string) => <b>{v}</b> },
+    { title: "描述", dataIndex: "description", key: "description", ellipsis: true },
+    {
+      title: "节点", key: "nodes",
+      render: (_: any, r: Workflow) => {
+        const n = r.dagDefinition?.nodes?.length || 0;
+        const e = r.dagDefinition?.edges?.length || 0;
+        return <Tag>{n} 节点 / {e} 连线</Tag>;
+      },
+    },
     {
       title: "状态", dataIndex: "status", key: "status",
       render: (v: string) => <Tag color={statusMap[v]?.color}>{statusMap[v]?.text || v}</Tag>,
