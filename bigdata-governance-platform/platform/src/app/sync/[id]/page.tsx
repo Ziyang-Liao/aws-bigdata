@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Button, Card, Descriptions, Space, Table, Tabs, Tag, Spin, message, Badge, Alert } from "antd";
+import { Button, Card, Descriptions, Space, Table, Tabs, Tag, Spin, message, Badge, Alert, Modal } from "antd";
 import { ArrowLeftOutlined, PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useParams, useRouter } from "next/navigation";
 
@@ -18,6 +18,7 @@ export default function SyncDetailPage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [s3Files, setS3Files] = useState<any[]>([]);
+  const [runLogModal, setRunLogModal] = useState<{ open: boolean; runId: string; logs: string[]; loading: boolean }>({ open: false, runId: "", logs: [], loading: false });
 
   const fetchTask = async () => {
     const res = await fetch(`/api/sync/${id}`);
@@ -86,6 +87,19 @@ export default function SyncDetailPage() {
 
   const s3OutputPath = task.s3Config?.bucket ? `s3://${task.s3Config.bucket}/${task.s3Config.prefix || ""}` : null;
 
+
+  const viewRunLog = async (runId: string) => {
+    setRunLogModal({ open: true, runId, logs: [], loading: true });
+    try {
+      const res = await fetch(`/api/sync/${id}/runs/${runId}/logs`);
+      const d = await res.json();
+      const logs = d.success ? (d.data?.logs || []) : ["加载失败"];
+      setRunLogModal({ open: true, runId, logs, loading: false });
+    } catch {
+      setRunLogModal({ open: true, runId, logs: ["加载失败"], loading: false });
+    }
+  };
+
   const runColumns = [
     { title: "#", key: "idx", render: (_: any, __: any, i: number) => runs.runs.length - i },
     { title: "开始时间", dataIndex: "startedAt", render: (v: string) => v?.slice(0, 19).replace("T", " ") },
@@ -93,7 +107,12 @@ export default function SyncDetailPage() {
     { title: "读取", key: "read", render: (_: any, r: any) => r.metrics?.rowsRead?.toLocaleString() || "-" },
     { title: "写入", key: "write", render: (_: any, r: any) => r.metrics?.rowsWritten?.toLocaleString() || "-" },
     { title: "状态", dataIndex: "status", render: (v: string) => <Badge status={statusBadge[v] || "default"} text={v === "succeeded" ? "成功" : v === "failed" ? "失败" : v} /> },
-    { title: "错误", dataIndex: "error", ellipsis: true, render: (v: string) => v ? <Tag color="red">{v.slice(0, 80)}</Tag> : "-" },
+    { title: "错误", dataIndex: "error", ellipsis: true, render: (v: string) => v ? <Tag color="red">{v.slice(0, 60)}</Tag> : "-" },
+    { title: "日志", key: "log", width: 80, render: (_: any, r: any) => (
+      <Button size="small" type="link" onClick={() => viewRunLog(r.runId)}>
+        {r.logS3Key ? "📋 查看" : r.status === "running" ? "⏳" : "📋 查看"}
+      </Button>
+    )},
   ];
 
   const mappingData = task.fieldMappings ? Object.entries(task.fieldMappings).flatMap(([table, fields]: [string, any]) =>
@@ -198,6 +217,19 @@ export default function SyncDetailPage() {
           </pre>
         )},
       ]} />
+
+      <Modal title={`运行日志 - ${runLogModal.runId?.slice(-8)}`} open={runLogModal.open}
+        onCancel={() => setRunLogModal({ open: false, runId: "", logs: [], loading: false })} footer={null} width={900}>
+        {runLogModal.loading ? <Spin style={{ display: "block", margin: "40px auto" }} /> : (
+          <div style={{ maxHeight: 500, overflow: "auto", background: "#1e1e1e", color: "#d4d4d4", padding: 16, borderRadius: 8, fontFamily: "monospace", fontSize: 12, lineHeight: 1.6 }}>
+            {runLogModal.logs.length > 0 ? runLogModal.logs.map((line, i) => (
+              <div key={i} style={{ color: line.includes("ERROR") || line.includes("Exception") ? "#ff6b6b" : line.includes("WARN") ? "#ffd43b" : line.includes("SYNC RESULTS") || line.includes("completed") || line.includes("Written") ? "#69db7c" : "#d4d4d4" }}>
+                {line}
+              </div>
+            )) : <span style={{ color: "#808080" }}>暂无日志</span>}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

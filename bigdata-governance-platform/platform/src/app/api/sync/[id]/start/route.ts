@@ -93,7 +93,7 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
 async function pollGlueJob(taskId: string, runId: string, jobName: string, jobRunId: string) {
   const { GetJobRunCommand } = await import("@aws-sdk/client-glue");
 
-  for (let i = 0; i < 120; i++) { // Poll up to 30 minutes
+  for (let i = 0; i < 120; i++) {
     await new Promise((r) => setTimeout(r, 15000));
 
     try {
@@ -105,17 +105,55 @@ async function pollGlueJob(taskId: string, runId: string, jobName: string, jobRu
         const now = new Date().toISOString();
         const status = state === "SUCCEEDED" ? "succeeded" : "failed";
 
+        // Collect full logs and save to S3
+        let logS3Key = "";
+        try {
+          const { CloudWatchLogsClient, GetLogEventsCommand, DescribeLogStreamsCommand } = await import("@aws-sdk/client-cloudwatch-logs");
+          const cwl = new CloudWatchLogsClient({ region: process.env.AWS_REGION || "us-east-1" });
+          const allLogs: string[] = [];
+
+          for (const logGroup of ["/aws-glue/jobs/output", "/aws-glue/jobs/logs-v2"]) {
+            try {
+              const { logStreams = [] } = await cwl.send(new DescribeLogStreamsCommand({
+                logGroupName: logGroup, orderBy: "LastEventTime", descending: true, limit: 20,
+              }));
+              const streams = logStreams.filter((s) => s.logStreamName?.includes(jobRunId.slice(0, 20)));
+              for (const stream of (streams.length > 0 ? streams : logStreams).slice(0, 3)) {
+                let nextToken: string | undefined;
+                do {
+                  const { events = [], nextForwardToken } = await cwl.send(new GetLogEventsCommand({
+                    logGroupName: logGroup, logStreamName: stream.logStreamName!, startFromHead: true, limit: 1000, nextToken,
+                  }));
+                  for (const e of events) { if (e.message) allLogs.push(`[${new Date(e.timestamp || 0).toISOString()}] ${e.message.trim()}`); }
+                  if (nextForwardToken === nextToken) break;
+                  nextToken = nextForwardToken;
+                } while (nextToken);
+              }
+              if (allLogs.length > 0) break;
+            } catch {}
+          }
+
+          if (allLogs.length > 0) {
+            const { PutObjectCommand } = await import("@aws-sdk/client-s3");
+            const bucket = process.env.GLUE_SCRIPTS_BUCKET || "bgp-glue-scripts-470377450205";
+            logS3Key = `logs/${taskId}/${runId}.log`;
+            await s3.send(new PutObjectCommand({
+              Bucket: bucket, Key: logS3Key,
+              Body: allLogs.join("\n"),
+              ContentType: "text/plain",
+            }));
+          }
+        } catch {}
+
         // Update run record
         await docClient.send(new UpdateCommand({
           TableName: TABLES.TASK_RUNS,
           Key: { taskId, runId },
-          UpdateExpression: "SET #s = :s, finishedAt = :f, #d = :d, #e = :e",
+          UpdateExpression: "SET #s = :s, finishedAt = :f, #d = :d, #e = :e, logS3Key = :l",
           ExpressionAttributeNames: { "#s": "status", "#d": "duration", "#e": "error" },
           ExpressionAttributeValues: {
-            ":s": status,
-            ":f": now,
-            ":d": JobRun.ExecutionTime || 0,
-            ":e": JobRun.ErrorMessage || null,
+            ":s": status, ":f": now, ":d": JobRun.ExecutionTime || 0,
+            ":e": JobRun.ErrorMessage || null, ":l": logS3Key || null,
           },
         }));
 
