@@ -27,6 +27,10 @@ export class PlatformStack extends cdk.Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName("AWSGlueConsoleFullAccess"),
         iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess"),
         iam.ManagedPolicy.fromAwsManagedPolicyName("CloudWatchLogsReadOnlyAccess"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonEC2FullAccess"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSReadOnlyAccess"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("IAMFullAccess"),
       ],
     });
 
@@ -47,6 +51,9 @@ export class PlatformStack extends cdk.Stack {
           REDSHIFT_WORKGROUP: "bgp-workgroup",
           GLUE_SCRIPTS_BUCKET: "bgp-glue-scripts-470377450205",
           MWAA_DAG_BUCKET: "bgp-mwaa-dags-470377450205",
+          DEFAULT_VPC_ID: props.vpc.vpcId,
+          DEFAULT_SUBNET_ID: props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }).subnetIds[0],
+          DEFAULT_AZ: props.vpc.availabilityZones[0],
         },
       },
       publicLoadBalancer: true,

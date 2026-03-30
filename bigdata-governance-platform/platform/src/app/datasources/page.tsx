@@ -18,7 +18,11 @@ export default function DatasourcesPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    try { setData(await (await fetch("/api/datasources")).json()); } finally { setLoading(false); }
+    try {
+      const res = await fetch("/api/datasources");
+      const json = await res.json();
+      setData(json.success ? json.data : json);
+    } finally { setLoading(false); }
   };
   useEffect(() => { fetchData(); }, []);
 
@@ -62,7 +66,18 @@ export default function DatasourcesPage() {
       title: "Glue Connection", dataIndex: "glueConnectionName", key: "glue",
       render: (v: string) => v ? <Tag color="blue">{v}</Tag> : <Tag>未关联</Tag>,
     },
-    { title: "状态", dataIndex: "status", key: "status", render: (v: string) => <Badge status={v === "active" ? "success" : v === "error" ? "error" : "default"} text={v === "active" ? "已连接" : v === "error" ? "异常" : "未激活"} /> },
+    {
+      title: "密码存储", dataIndex: "secretArn", key: "secret",
+      render: (v: string) => v ? <Tag color="green">🔒 Secrets Manager</Tag> : <Tag color="red">⚠️ 未加密</Tag>,
+    },
+    { title: "状态", dataIndex: "status", key: "status", render: (v: string, r: DataSource) => {
+      const m: Record<string, { s: "success"|"error"|"default"|"processing"|"warning"; t: string }> = {
+        active: { s: "success", t: "已连接" }, testing: { s: "processing", t: "测试中" },
+        error: { s: "error", t: "异常" }, unreachable: { s: "warning", t: "不可达" }, inactive: { s: "default", t: "未激活" },
+      };
+      const st = m[v] || m.inactive;
+      return <div><Badge status={st.s} text={st.t} />{r.testResult?.totalMs ? <span style={{ fontSize: 11, color: "#888" }}> ({r.testResult.totalMs}ms)</span> : null}</div>;
+    }},
     { title: "更新时间", dataIndex: "updatedAt", key: "updatedAt", render: (v: string) => v?.slice(0, 19).replace("T", " "), width: 170 },
     {
       title: "操作", key: "action", width: 220,
