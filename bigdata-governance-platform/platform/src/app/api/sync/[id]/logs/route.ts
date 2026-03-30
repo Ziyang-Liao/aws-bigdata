@@ -1,9 +1,9 @@
 export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
-import { GetCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { CloudWatchLogsClient, GetLogEventsCommand, DescribeLogStreamsCommand } from "@aws-sdk/client-cloudwatch-logs";
 import { docClient, TABLES } from "@/lib/aws/dynamodb";
-import { apiOk, apiError } from "@/lib/api-response";
+import { apiOk } from "@/lib/api-response";
 
 const USER_ID = "default-user";
 const cwl = new CloudWatchLogsClient({ region: process.env.AWS_REGION || "us-east-1" });
@@ -11,50 +11,49 @@ const cwl = new CloudWatchLogsClient({ region: process.env.AWS_REGION || "us-eas
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { Item: task } = await docClient.send(new GetCommand({ TableName: TABLES.SYNC_TASKS, Key: { userId: USER_ID, taskId: params.id } }));
-    if (!task?.glueJobName) return apiOk([]);
+    if (!task?.glueJobName) return apiOk(["任务未启动，无日志"]);
 
-    const logGroups = ["/aws-glue/jobs/logs-v2", "/aws-glue/jobs/output"];
+    // Get latest run's glueJobRunId
+    let targetRunId = "";
+    try {
+      const { Items = [] } = await docClient.send(new QueryCommand({
+        TableName: TABLES.TASK_RUNS, KeyConditionExpression: "taskId = :t",
+        ExpressionAttributeValues: { ":t": params.id }, ScanIndexForward: false, Limit: 1,
+      }));
+      if (Items[0]?.glueJobRunId) targetRunId = Items[0].glueJobRunId;
+    } catch {}
+
+    const logGroups = ["/aws-glue/jobs/output", "/aws-glue/jobs/logs-v2"];
     const allLogs: string[] = [];
 
     for (const logGroup of logGroups) {
       try {
-        // Find log streams - Glue uses job run ID as stream name
         const { logStreams = [] } = await cwl.send(new DescribeLogStreamsCommand({
-          logGroupName: logGroup,
-          orderBy: "LastEventTime",
-          descending: true,
-          limit: 10,
+          logGroupName: logGroup, orderBy: "LastEventTime", descending: true, limit: 20,
         }));
 
-        // Filter streams related to this job
-        const jobStreams = logStreams.filter((s) => {
-          const name = s.logStreamName || "";
-          return name.includes(task.glueJobName) || task.glueJobName?.includes(name.split("-")[0]);
-        });
+        // Find stream matching the latest job run ID (partial match)
+        let streams = targetRunId
+          ? logStreams.filter((s) => s.logStreamName?.includes(targetRunId.slice(0, 20)))
+          : [];
 
-        // If no match by job name, take the most recent streams
-        const streamsToRead = jobStreams.length > 0 ? jobStreams.slice(0, 3) : logStreams.slice(0, 3);
+        // Fallback: if no match, use most recent
+        if (streams.length === 0) streams = logStreams.slice(0, 3);
 
-        for (const stream of streamsToRead) {
+        for (const stream of streams.slice(0, 2)) {
           try {
             const { events = [] } = await cwl.send(new GetLogEventsCommand({
-              logGroupName: logGroup,
-              logStreamName: stream.logStreamName!,
-              startFromHead: false,
-              limit: 100,
+              logGroupName: logGroup, logStreamName: stream.logStreamName!, startFromHead: false, limit: 200,
             }));
-            for (const e of events) {
-              if (e.message) allLogs.push(e.message.trim());
-            }
+            for (const e of events) { if (e.message) allLogs.push(e.message.trim()); }
           } catch {}
         }
-        if (allLogs.length > 0) break; // Found logs, stop searching
+        if (allLogs.length > 0) break;
       } catch {}
     }
 
-    return apiOk(allLogs.length > 0 ? allLogs : ["日志暂未生成，Glue Job 启动后约 30-60 秒开始输出日志"]);
-  } catch (e: any) {
-    // Log group might not exist yet
-    return apiOk(["日志组不存在，任务首次运行后将自动创建"]);
+    return apiOk(allLogs.length > 0 ? allLogs : ["日志生成中... Glue Job 日志通常有 1-2 分钟延迟"]);
+  } catch {
+    return apiOk(["日志加载失败"]);
   }
 }
