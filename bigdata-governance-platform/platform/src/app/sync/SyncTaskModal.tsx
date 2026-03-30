@@ -155,6 +155,42 @@ export default function SyncTaskModal({ open, editing, onClose, onSuccess }: Pro
               </Radio.Group></Form.Item>
             </div>
           )}
+          {/* SYNC-04: WHERE filter */}
+          <Form.Item name="whereClause" label="数据过滤条件 (WHERE)">
+            <Input.TextArea rows={2} placeholder="例如: created_at >= '${run_date}' AND status = 'completed'" />
+          </Form.Item>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>
+            可用变量: <Tag>{"${run_date}"}</Tag> <Tag>{"${yesterday}"}</Tag> <Tag>{"${run_hour}"}</Tag>
+            <Space style={{ marginLeft: 12 }}>
+              快捷: <a onClick={() => form.setFieldValue("whereClause", "created_at >= '${run_date}'")}>当天数据</a>
+              <a onClick={() => form.setFieldValue("whereClause", "created_at >= CURRENT_DATE - INTERVAL 7 DAY")}>最近7天</a>
+            </Space>
+          </div>
+
+          {/* SYNC-05: Incremental config */}
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.syncMode !== cur.syncMode}>
+            {({ getFieldValue }) => getFieldValue("syncMode") === "incremental" && (<>
+              <Divider>增量配置</Divider>
+              <Form.Item name={["incrementalConfig", "strategy"]} label="增量策略" initialValue="timestamp">
+                <Radio.Group>
+                  <Radio.Button value="timestamp">时间戳增量</Radio.Button>
+                  <Radio.Button value="id">自增ID增量</Radio.Button>
+                  <Radio.Button value="cdc">CDC日志</Radio.Button>
+                </Radio.Group>
+              </Form.Item>
+              <Space size={16}>
+                <Form.Item name={["incrementalConfig", "field"]} label="增量字段">
+                  <Input placeholder="updated_at 或 id" style={{ width: 200 }} />
+                </Form.Item>
+                <Form.Item name={["incrementalConfig", "startValue"]} label="起始值">
+                  <Input placeholder="2026-01-01 00:00:00" style={{ width: 220 }} />
+                </Form.Item>
+              </Space>
+              <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>
+                💡 水位线自动管理：每次同步后自动记录最新值，下次从该值继续
+              </div>
+            </>)}
+          </Form.Item>
         </>)}
 
         {step === 1 && (<>

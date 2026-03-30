@@ -12,6 +12,8 @@ import {
   DashboardOutlined,
   SafetyCertificateOutlined,
   HomeOutlined,
+  UserOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 
 const { Sider } = Layout;
@@ -25,6 +27,9 @@ const menuItems = [
   { key: "/redshift", icon: <ConsoleSqlOutlined />, label: "Redshift 任务" },
   { key: "/monitor", icon: <DashboardOutlined />, label: "任务监控" },
   { key: "/governance", icon: <SafetyCertificateOutlined />, label: "数据治理" },
+  { type: "divider" as const },
+  { key: "/admin/users", icon: <UserOutlined />, label: "用户管理" },
+  { key: "/settings", icon: <SettingOutlined />, label: "系统设置" },
 ];
 
 export default function Sidebar() {
