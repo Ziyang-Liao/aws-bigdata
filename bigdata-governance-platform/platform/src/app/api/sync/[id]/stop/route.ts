@@ -1,20 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { GlueClient, BatchStopJobRunCommand } from "@aws-sdk/client-glue";
 import { docClient, TABLES } from "@/lib/aws/dynamodb";
+import { apiOk, apiError } from "@/lib/api-response";
 
 const USER_ID = "default-user";
 const glue = new GlueClient({ region: process.env.AWS_REGION || "us-east-1" });
 
 export async function POST(_: NextRequest, { params }: { params: { id: string } }) {
-  const { Item: task } = await docClient.send(
-    new GetCommand({ TableName: TABLES.SYNC_TASKS, Key: { userId: USER_ID, taskId: params.id } })
-  );
-  if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
   try {
-    if (task.channel === "glue" && task.glueJobName) {
-      await glue.send(new BatchStopJobRunCommand({ JobName: task.glueJobName, JobRunIds: [] }));
+    const { Item: task } = await docClient.send(
+      new GetCommand({ TableName: TABLES.SYNC_TASKS, Key: { userId: USER_ID, taskId: params.id } })
+    );
+    if (!task) return apiError("任务不存在", 404);
+
+    if (task.glueJobName) {
+      try {
+        await glue.send(new BatchStopJobRunCommand({ JobName: task.glueJobName, JobRunIds: [] }));
+      } catch {}
     }
 
     await docClient.send(new UpdateCommand({
@@ -25,8 +28,8 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
       ExpressionAttributeValues: { ":s": "stopped", ":now": new Date().toISOString() },
     }));
 
-    return NextResponse.json({ success: true });
+    return apiOk({ stopped: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return apiError(err.message, 500);
   }
 }

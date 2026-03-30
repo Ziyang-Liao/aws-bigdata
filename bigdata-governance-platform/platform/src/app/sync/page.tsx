@@ -44,7 +44,10 @@ export default function SyncPage() {
     const action = status === "running" ? "stop" : "start";
     const res = await fetch(`/api/sync/${id}/${action}`, { method: "POST" });
     const data = await res.json();
-    if (data.error) { message.error(data.error); return; }
+    if (data.success === false || data.error) {
+      message.error(data.error?.message || data.error || "操作失败");
+      return;
+    }
     message.success(action === "start" ? "已启动" : "已停止");
     fetchData();
   };

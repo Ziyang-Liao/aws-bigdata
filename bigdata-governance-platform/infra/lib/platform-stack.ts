@@ -50,6 +50,7 @@ export class PlatformStack extends cdk.Stack {
           NEXT_PUBLIC_COGNITO_CLIENT_ID: "59m27ovhvfkjcsgfi8d29g0ju0",
           REDSHIFT_WORKGROUP: "bgp-workgroup",
           GLUE_SCRIPTS_BUCKET: "bgp-glue-scripts-470377450205",
+          GLUE_ROLE_ARN: "arn:aws:iam::470377450205:role/bgp-glue-role",
           MWAA_DAG_BUCKET: "bgp-mwaa-dags-470377450205",
           DEFAULT_VPC_ID: props.vpc.vpcId,
           DEFAULT_SUBNET_ID: props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }).subnetIds[0],

@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { GlueClient, CreateJobCommand, StartJobRunCommand } from "@aws-sdk/client-glue";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { docClient, TABLES } from "@/lib/aws/dynamodb";
 import { generateGlueScript } from "@/lib/sync/glue-script-generator";
+import { apiOk, apiError } from "@/lib/api-response";
 import type { DataSource } from "@/types/datasource";
 
 const USER_ID = "default-user";
@@ -11,36 +12,41 @@ const glue = new GlueClient({ region: process.env.AWS_REGION || "us-east-1" });
 const s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
 
 export async function POST(_: NextRequest, { params }: { params: { id: string } }) {
-  // Get task
-  const { Item: task } = await docClient.send(
-    new GetCommand({ TableName: TABLES.SYNC_TASKS, Key: { userId: USER_ID, taskId: params.id } })
-  );
-  if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
-
-  // Get datasource
-  const { Item: ds } = await docClient.send(
-    new GetCommand({ TableName: TABLES.DATASOURCES, Key: { userId: USER_ID, datasourceId: task.datasourceId } })
-  );
-  if (!ds) return NextResponse.json({ error: "DataSource not found" }, { status: 404 });
-
   try {
-    if (task.channel === "glue") {
-      // Generate and upload Glue script
+    const { Item: task } = await docClient.send(
+      new GetCommand({ TableName: TABLES.SYNC_TASKS, Key: { userId: USER_ID, taskId: params.id } })
+    );
+    if (!task) return apiError("任务不存在", 404);
+
+    const { Item: ds } = await docClient.send(
+      new GetCommand({ TableName: TABLES.DATASOURCES, Key: { userId: USER_ID, datasourceId: task.datasourceId } })
+    );
+    if (!ds) return apiError("数据源不存在，请先配置数据源", 404);
+
+    const roleArn = process.env.GLUE_ROLE_ARN;
+    if (!roleArn) return apiError("Glue IAM Role 未配置，请在系统设置中配置 GLUE_ROLE_ARN");
+
+    const channel = task.channel || "glue";
+
+    if (channel === "glue") {
       const script = generateGlueScript(task as any, ds as DataSource);
+      const bucket = process.env.GLUE_SCRIPTS_BUCKET || "bgp-glue-scripts-470377450205";
       const scriptKey = `glue-scripts/${task.taskId}.py`;
-      const bucket = process.env.GLUE_SCRIPTS_BUCKET || "bgp-glue-scripts";
 
       await s3.send(new PutObjectCommand({ Bucket: bucket, Key: scriptKey, Body: script }));
 
-      const jobName = `bgp-sync-${task.taskId}`;
+      const jobName = `bgp-sync-${task.taskId.slice(-12)}`;
+      const connName = ds.glueConnectionName;
+
       try {
         await glue.send(new CreateJobCommand({
           Name: jobName,
-          Role: process.env.GLUE_ROLE_ARN || "",
+          Role: roleArn,
           Command: { Name: "glueetl", ScriptLocation: `s3://${bucket}/${scriptKey}`, PythonVersion: "3" },
           GlueVersion: "4.0",
           NumberOfWorkers: 2,
           WorkerType: "G.1X",
+          Connections: connName ? { Connections: [connName] } : undefined,
         }));
       } catch (e: any) {
         if (!e.message?.includes("already exists")) throw e;
@@ -56,66 +62,12 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
         ExpressionAttributeValues: { ":s": "running", ":j": jobName, ":now": new Date().toISOString() },
       }));
 
-      return NextResponse.json({ success: true, channel: "glue", jobName, jobRunId: JobRunId });
+      return apiOk({ channel: "glue", jobName, jobRunId: JobRunId });
     }
 
-    if (task.channel === "zero-etl") {
-      // Zero-ETL: create Glue integration
-      const { CreateIntegrationCommand } = await import("@aws-sdk/client-glue");
-      const result: any = await glue.send(new (CreateIntegrationCommand as any)({
-        IntegrationName: `bgp-zetl-${task.taskId}`,
-        SourceArn: ds.glueConnectionName || "",
-        TargetArn: process.env.REDSHIFT_NAMESPACE_ARN || "",
-      }));
-      const IntegrationArn = result.IntegrationArn;
-
-      await docClient.send(new UpdateCommand({
-        TableName: TABLES.SYNC_TASKS,
-        Key: { userId: USER_ID, taskId: params.id },
-        UpdateExpression: "SET #s = :s, integrationArn = :a, updatedAt = :now",
-        ExpressionAttributeNames: { "#s": "status" },
-        ExpressionAttributeValues: { ":s": "running", ":a": IntegrationArn, ":now": new Date().toISOString() },
-      }));
-
-      return NextResponse.json({ success: true, channel: "zero-etl", integrationArn: IntegrationArn });
-    }
-
-    if (task.channel === "dms") {
-      const { DatabaseMigrationServiceClient, CreateReplicationTaskCommand, StartReplicationTaskCommand } = await import("@aws-sdk/client-database-migration-service");
-      const dms = new DatabaseMigrationServiceClient({ region: process.env.AWS_REGION || "us-east-1" });
-
-      const taskId = `bgp-dms-${task.taskId}`;
-      const tableMappings = JSON.stringify({
-        rules: [{ "rule-type": "selection", "rule-id": "1", "rule-name": "include-tables", "object-locator": { "schema-name": task.sourceDatabase || "%", "table-name": "%" }, "rule-action": "include" }],
-      });
-
-      await dms.send(new CreateReplicationTaskCommand({
-        ReplicationTaskIdentifier: taskId,
-        SourceEndpointArn: process.env.DMS_SOURCE_ENDPOINT_ARN || "",
-        TargetEndpointArn: process.env.DMS_TARGET_ENDPOINT_ARN || "",
-        ReplicationInstanceArn: process.env.DMS_REPLICATION_INSTANCE_ARN || "",
-        MigrationType: task.syncMode === "incremental" ? "cdc" : "full-load",
-        TableMappings: tableMappings,
-      }));
-
-      await dms.send(new StartReplicationTaskCommand({
-        ReplicationTaskArn: taskId,
-        StartReplicationTaskType: "start-replication",
-      }));
-
-      await docClient.send(new UpdateCommand({
-        TableName: TABLES.SYNC_TASKS,
-        Key: { userId: USER_ID, taskId: params.id },
-        UpdateExpression: "SET #s = :s, updatedAt = :now",
-        ExpressionAttributeNames: { "#s": "status" },
-        ExpressionAttributeValues: { ":s": "running", ":now": new Date().toISOString() },
-      }));
-
-      return NextResponse.json({ success: true, channel: "dms", taskId });
-    }
-
-    return NextResponse.json({ error: "Unknown channel" }, { status: 400 });
+    // Zero-ETL / DMS channels
+    return apiError(`通道 ${channel} 暂未实现，请使用 Glue ETL`);
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return apiError(`启动失败: ${err.message}`, 500);
   }
 }
