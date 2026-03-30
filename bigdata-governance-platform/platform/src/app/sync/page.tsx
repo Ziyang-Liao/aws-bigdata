@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Table, Button, Space, Tag, Popconfirm, message } from "antd";
 import { PlusOutlined, ReloadOutlined, PlayCircleOutlined, PauseCircleOutlined } from "@ant-design/icons";
 import type { SyncTask } from "@/types/sync-task";
+import { useRouter } from "next/navigation";
 import SyncTaskModal from "./SyncTaskModal";
 
 const statusMap: Record<string, { color: string; text: string }> = {
@@ -20,10 +21,15 @@ export default function SyncPage() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<SyncTask | undefined>();
+  const router = useRouter();
 
   const fetchData = async () => {
     setLoading(true);
-    try { setData(await (await fetch("/api/sync")).json()); } finally { setLoading(false); }
+    try {
+      const res = await fetch("/api/sync");
+      const d = await res.json();
+      setData(d.success ? d.data : d);
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -60,6 +66,7 @@ export default function SyncPage() {
           <a onClick={() => handleToggle(record.taskId, record.status)}>
             {record.status === "running" ? <><PauseCircleOutlined /> 停止</> : <><PlayCircleOutlined /> 启动</>}
           </a>
+          <a onClick={() => router.push(`/sync/${record.taskId}`)}>详情</a>
           <a onClick={() => { setEditing(record); setModalOpen(true); }}>编辑</a>
           <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.taskId)}>
             <a style={{ color: "red" }}>删除</a>

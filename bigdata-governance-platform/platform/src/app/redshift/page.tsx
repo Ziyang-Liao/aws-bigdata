@@ -33,9 +33,13 @@ export default function RedshiftPage() {
 
   const [databases, setDatabases] = useState<string[]>(["dev"]);
 
+  const [currentStatementId, setCurrentStatementId] = useState<string>("");
+  const [sqlHistory, setSqlHistory] = useState<any[]>([]);
+
   const fetchTasks = () => fetch("/api/redshift/tasks").then((r) => r.json()).then(setSavedTasks);
   const fetchWorkgroups = () => fetch("/api/redshift/connections").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setWorkgroups(d); });
   const fetchDatabases = (wg: string) => fetch(`/api/redshift/databases?workgroup=${wg}`).then((r) => r.json()).then((d: any[]) => { if (d.length) setDatabases(d.map((x) => x.name)); });
+  const fetchHistory = () => fetch("/api/redshift/history").then((r) => r.json()).then((d) => setSqlHistory(d.success ? d.data : d));
 
   const fetchSchemas = async () => {
     setLoadingSchema(true);
@@ -45,7 +49,7 @@ export default function RedshiftPage() {
     } finally { setLoadingSchema(false); }
   };
 
-  useEffect(() => { fetchTasks(); fetchWorkgroups(); fetchDatabases(selectedWg); }, []);
+  useEffect(() => { fetchTasks(); fetchWorkgroups(); fetchDatabases(selectedWg); fetchHistory(); }, []);
 
   const handleExecute = async () => {
     setRunning(true); setResult(null); setError("");
@@ -56,11 +60,17 @@ export default function RedshiftPage() {
       });
       const data = await res.json();
       if (data.error) { setError(data.error); setRunning(false); return; }
+      setCurrentStatementId(data.statementId);
+      const startTime = Date.now();
       const poll = async () => {
         const r = await fetch(`/api/redshift/result/${data.statementId}`);
         const d = await r.json();
-        if (d.status === "FINISHED") { setResult(d); setRunning(false); }
-        else if (d.status === "FAILED") { setError(d.error || "执行失败"); setRunning(false); }
+        if (d.status === "FINISHED") { setResult(d); setRunning(false); setCurrentStatementId("");
+          fetch("/api/redshift/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql, status: "success", duration: Math.round((Date.now() - startTime) / 1000), rowCount: d.totalRows }) }).then(fetchHistory);
+        }
+        else if (d.status === "FAILED") { setError(d.error || "执行失败"); setRunning(false); setCurrentStatementId("");
+          fetch("/api/redshift/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql, status: "failed", duration: Math.round((Date.now() - startTime) / 1000), error: d.error }) }).then(fetchHistory);
+        }
         else { pollRef.current = setTimeout(poll, 1500); }
       };
       poll();
@@ -134,7 +144,15 @@ export default function RedshiftPage() {
                 <Space>
                   <Input placeholder="任务名称" value={taskName} onChange={(e) => setTaskName(e.target.value)} style={{ width: 140 }} />
                   <Button icon={<SaveOutlined />} onClick={handleSave}>保存</Button>
-                  <Button type="primary" icon={<PlayCircleOutlined />} onClick={handleExecute} loading={running}>执行</Button>
+                  <Button type="primary" icon={<PlayCircleOutlined />} onClick={handleExecute} loading={running}>
+                    {running ? "执行中..." : "执行"}
+                  </Button>
+                  {running && currentStatementId && (
+                    <Button danger onClick={async () => {
+                      await fetch("/api/redshift/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ statementId: currentStatementId }) });
+                      setRunning(false); setCurrentStatementId(""); message.info("查询已取消");
+                    }}>取消</Button>
+                  )}
                 </Space>
               </div>
               <div style={{ border: "1px solid #d9d9d9", borderRadius: 8, overflow: "hidden", marginBottom: 12 }}>
@@ -167,6 +185,16 @@ export default function RedshiftPage() {
                   </Space>
                 )},
               ]} dataSource={savedTasks} rowKey="taskId" />
+            )},
+            { key: "history", label: `执行历史 (${sqlHistory.length})`, children: (
+              <Table size="small" columns={[
+                { title: "SQL", dataIndex: "sql", ellipsis: true, render: (v: string) => <code style={{ fontSize: 11 }}>{v?.slice(0, 80)}</code> },
+                { title: "状态", dataIndex: "status", width: 80, render: (v: string) => <Tag color={v === "success" ? "green" : "red"}>{v}</Tag> },
+                { title: "耗时", dataIndex: "duration", width: 70, render: (v: number) => v ? `${v}s` : "-" },
+                { title: "行数", dataIndex: "rowCount", width: 70 },
+                { title: "时间", dataIndex: "createdAt", width: 160, render: (v: string) => v?.slice(0, 19).replace("T", " ") },
+                { title: "", width: 60, render: (_: any, r: any) => <a onClick={() => setSql(r.sql)}>加载</a> },
+              ]} dataSource={sqlHistory} rowKey="historyId" pagination={{ pageSize: 20 }} />
             )},
           ]} />
         </div>
