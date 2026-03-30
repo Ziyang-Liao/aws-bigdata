@@ -53,12 +53,12 @@ export default function DataSourceModal({ open, editing, onClose, onSuccess }: P
       const method = isEdit ? "PUT" : "POST";
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) });
       const data = await res.json();
-      if (data.success) {
-        setProvisionResult(data.data);
+      if (data.success !== false && res.ok) {
+        setProvisionResult(data.data || data);
         if (isEdit) { message.success("已更新"); onSuccess(); }
-        else setStep(2); // Go to confirmation step
+        else setStep(2);
       } else {
-        message.error(data.error?.message || "操作失败");
+        message.error(data.error?.message || "创建失败，请检查配置");
       }
     } catch (e: any) {
       message.error(e.message);

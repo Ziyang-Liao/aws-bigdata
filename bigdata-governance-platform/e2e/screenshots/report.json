@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-03-30T09:06:40.902Z",
+  "passed": 44,
+  "failed": 0,
+  "issues": [],
+  "screenshots": [
+    "01-dashboard.png",
+    "02-datasources.png",
+    "02b-datasource-create.png",
+    "02c-metadata-browse.png",
+    "03-sync.png",
+    "03b-sync-detail.png",
+    "03c-sync-output.png",
+    "03d-sync-runs.png",
+    "03e-sync-create-step0.png",
+    "04-workflow.png",
+    "05-schedule.png",
+    "06-redshift.png",
+    "06b-redshift-schema.png",
+    "07-monitor.png",
+    "08-governance.png",
+    "09-users.png",
+    "10-settings.png",
+    "10b-settings-health.png",
+    "11-login.png",
+    "report.json"
+  ]
+}

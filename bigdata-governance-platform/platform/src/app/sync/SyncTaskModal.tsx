@@ -89,6 +89,19 @@ export default function SyncTaskModal({ open, editing, onClose, onSuccess }: Pro
     } finally { setSaving(false); }
   };
 
+  const validateStep = () => {
+    const v = form.getFieldsValue(true);
+    if (step === 0) {
+      if (!v.name) { message.warning("请输入任务名称"); return false; }
+      if (!v.datasourceId) { message.warning("请选择数据源"); return false; }
+      if (!v.syncMode) { message.warning("请选择同步模式"); return false; }
+      if (!v.writeMode) { message.warning("请选择写入模式"); return false; }
+      if (!v.targetType) { message.warning("请选择目标类型"); return false; }
+    }
+    if (step === 1 && selectedTables.length === 0) { message.warning("请至少选择一张表"); return false; }
+    return true;
+  };
+
   const STEPS = [{ title: "源端配置" }, { title: "选表 & 映射" }, { title: "目标配置" }, { title: "建表预览" }, { title: "调度设置" }];
   const compatIcon = (c: string) => c === "compatible" ? <CheckCircleOutlined style={{ color: "#52c41a" }} /> : <WarningOutlined style={{ color: c === "truncation" ? "#ff4d4f" : "#faad14" }} />;
 
@@ -282,7 +295,7 @@ export default function SyncTaskModal({ open, editing, onClose, onSuccess }: Pro
 
       <div style={{ textAlign: "right", marginTop: 12, borderTop: "1px solid #f0f0f0", paddingTop: 12 }}>
         {step > 0 && <Button onClick={() => setStep(step - 1)} style={{ marginRight: 8 }}>上一步</Button>}
-        {step < STEPS.length - 1 && <Button type="primary" onClick={() => setStep(step + 1)}>下一步</Button>}
+        {step < STEPS.length - 1 && <Button type="primary" onClick={() => { if (validateStep()) setStep(step + 1); }}>下一步</Button>}
       </div>
     </Modal>
   );
