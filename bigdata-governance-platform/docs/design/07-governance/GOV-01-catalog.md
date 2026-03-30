@@ -3,29 +3,34 @@
 > 优先级: P0 | 模块: 数据治理
 
 ## 1. 功能概述
-自动从Glue Data Catalog和Redshift采集表元数据,在平台内展示。定时采集+手动触发。
+自动从 Glue Data Catalog 和 Redshift 采集表元数据（表名、字段、类型、注释、行数），在平台内统一展示。支持定时采集（每天）和手动触发。前端：数据目录页面，搜索框+表列表+表详情（字段/统计/标签）。后端：GET /api/governance/catalog?keyword=users。采集逻辑：调 Glue GetTables 获取 Data Catalog 中的表 + 调 Redshift information_schema 获取 Redshift 表。合并去重后存入 DynamoDB bgp-data-catalog 表。EventBridge 每天触发 Lambda 执行采集。
 
 ## 2. 用户故事
-- 作为数据治理人员，我希望平台提供该功能，以便管理数据资产和保障数据质量。
+- 作为平台用户，我希望平台提供该功能，以便高效完成日常数据开发和运维工作。
 
 ## 3. 交互设计
-详见功能概述。
+详见功能概述中的前端描述。基于 Ant Design + Next.js 实现。
 
 ## 4. API 设计
-遵循 /api/governance 路由规范。
+详见功能概述中的 API 描述。遵循 RESTful 规范。
 
 ## 5. 数据模型
-根据功能需求新增 DynamoDB 表。
+详见功能概述中的数据模型描述。
 
 ## 6. 后端实现方案
-基于 Glue Data Catalog + Redshift + 自建血缘引擎实现。
+详见功能概述中的后端描述。
 
 ## 7. AWS 服务依赖
-Glue Data Catalog, Redshift, DynamoDB, EventBridge。
+根据功能涉及的 AWS 服务（详见功能概述）。
 
 ## 8. 安全考虑
-元数据访问权限控制。
+- 遵循最小权限原则
+- 敏感数据加密存储和传输
+- 操作权限控制
+- 输入校验防注入
 
 ## 9. 验收标准
-- [ ] 功能按设计实现
-- [ ] 数据资产信息准确完整
+- [ ] 功能按设计实现并通过端到端测试
+- [ ] 前端交互流畅，错误提示清晰
+- [ ] API 返回格式规范
+- [ ] 与现有功能无冲突
