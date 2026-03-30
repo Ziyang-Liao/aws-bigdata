@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import { GetCommand } from "@aws-sdk/lib-dynamodb";
 import { GlueClient, GetJobRunsCommand } from "@aws-sdk/client-glue";

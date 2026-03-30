@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import { CognitoIdentityProviderClient, ListUsersCommand, AdminCreateUserCommand, AdminSetUserPasswordCommand, AdminDisableUserCommand, AdminEnableUserCommand, AdminAddUserToGroupCommand, AdminRemoveUserFromGroupCommand, AdminListGroupsForUserCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { apiOk, apiError } from "@/lib/api-response";
 
 const cognito = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION || "us-east-1" });
-const POOL_ID = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || "";
+const POOL_ID = process.env.COGNITO_USER_POOL_ID || process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || "";
 
 export async function GET() {
   if (!POOL_ID) return apiOk([]);

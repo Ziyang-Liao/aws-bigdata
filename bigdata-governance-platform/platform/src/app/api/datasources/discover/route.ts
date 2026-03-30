@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { discoverRdsInstances } from "@/lib/aws/datasource-service";
 import { apiOk, apiError } from "@/lib/api-response";
 

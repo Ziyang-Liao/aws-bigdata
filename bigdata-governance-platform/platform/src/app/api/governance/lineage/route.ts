@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import { getLineage } from "@/lib/governance/lineage-service";
 import { apiOk, apiError } from "@/lib/api-response";

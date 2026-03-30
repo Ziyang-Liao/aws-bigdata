@@ -1,48 +1,57 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Card, Descriptions, Tag, Badge, Button, Space, Spin, message } from "antd";
-import { SettingOutlined, ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import { Card, Descriptions, Tag, Button, Space, Spin } from "antd";
+import { SettingOutlined, ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, WarningOutlined } from "@ant-design/icons";
 
 export default function SettingsPage() {
+  const [config, setConfig] = useState<any>(null);
   const [health, setHealth] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+
+  const fetchConfig = async () => {
+    const res = await fetch("/api/settings");
+    const d = await res.json();
+    setConfig(d.success ? d.data : d);
+  };
 
   const checkHealth = async () => {
     setLoading(true);
     const checks: Record<string, any> = {};
 
-    // DynamoDB
     try {
       const res = await fetch("/api/datasources");
       checks.dynamodb = { status: res.ok ? "ok" : "error", message: res.ok ? "正常" : `HTTP ${res.status}` };
     } catch (e: any) { checks.dynamodb = { status: "error", message: e.message }; }
 
-    // Redshift
     try {
       const res = await fetch("/api/redshift/connections");
       const d = await res.json();
-      checks.redshift = { status: Array.isArray(d) && d.length > 0 ? "ok" : "warning", message: Array.isArray(d) ? `${d.length} 个 Workgroup` : "无法获取" };
+      const list = Array.isArray(d) ? d : d.data || [];
+      checks.redshift = { status: list.length > 0 ? "ok" : "warning", message: `${list.length} 个 Workgroup` };
     } catch (e: any) { checks.redshift = { status: "error", message: e.message }; }
 
-    // S3
     try {
       const res = await fetch("/api/s3/buckets");
       const d = await res.json();
       const buckets = d.success ? d.data : d;
-      checks.s3 = { status: "ok", message: `${buckets.length} 个 Bucket` };
+      checks.s3 = { status: "ok", message: `${Array.isArray(buckets) ? buckets.length : 0} 个 Bucket` };
     } catch (e: any) { checks.s3 = { status: "error", message: e.message }; }
 
-    // Cognito
-    checks.cognito = { status: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ? "ok" : "warning", message: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || "未配置" };
+    try {
+      const res = await fetch("/api/admin/users");
+      const d = await res.json();
+      const users = d.success ? d.data : [];
+      checks.cognito = { status: users.length > 0 ? "ok" : "warning", message: users.length > 0 ? `${users.length} 个用户` : "已配置" };
+    } catch { checks.cognito = { status: "warning", message: "检查中..." }; }
 
     setHealth(checks);
     setLoading(false);
   };
 
-  useEffect(() => { checkHealth(); }, []);
+  useEffect(() => { fetchConfig(); checkHealth(); }, []);
 
-  const statusIcon = (s: string) => s === "ok" ? <CheckCircleOutlined style={{ color: "#52c41a" }} /> : s === "warning" ? <CheckCircleOutlined style={{ color: "#faad14" }} /> : <CloseCircleOutlined style={{ color: "#ff4d4f" }} />;
+  const statusIcon = (s: string) => s === "ok" ? <CheckCircleOutlined style={{ color: "#52c41a" }} /> : s === "warning" ? <WarningOutlined style={{ color: "#faad14" }} /> : <CloseCircleOutlined style={{ color: "#ff4d4f" }} />;
 
   return (
     <div>
@@ -52,18 +61,21 @@ export default function SettingsPage() {
       </div>
 
       <Card title="平台配置" size="small" style={{ marginBottom: 16 }}>
-        <Descriptions column={2} size="small" bordered>
-          <Descriptions.Item label="AWS Region">{process.env.AWS_REGION || "us-east-1"}</Descriptions.Item>
-          <Descriptions.Item label="Cognito User Pool">{process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || "未配置"}</Descriptions.Item>
-          <Descriptions.Item label="Redshift Workgroup">{process.env.REDSHIFT_WORKGROUP || "bgp-workgroup"}</Descriptions.Item>
-          <Descriptions.Item label="Glue 脚本 Bucket">{process.env.GLUE_SCRIPTS_BUCKET || "bgp-glue-scripts-*"}</Descriptions.Item>
-          <Descriptions.Item label="数据湖 Bucket">bgp-datalake-*</Descriptions.Item>
-          <Descriptions.Item label="MWAA DAG Bucket">{process.env.MWAA_DAG_BUCKET || "bgp-mwaa-dags-*"}</Descriptions.Item>
-        </Descriptions>
+        {config ? (
+          <Descriptions column={2} size="small" bordered>
+            <Descriptions.Item label="AWS Region">{config.region}</Descriptions.Item>
+            <Descriptions.Item label="Cognito User Pool">{config.cognitoUserPoolId}</Descriptions.Item>
+            <Descriptions.Item label="Redshift Workgroup">{config.redshiftWorkgroup}</Descriptions.Item>
+            <Descriptions.Item label="Glue 脚本 Bucket">{config.glueScriptsBucket}</Descriptions.Item>
+            <Descriptions.Item label="Glue IAM Role">{config.glueRoleArn?.split("/").pop()}</Descriptions.Item>
+            <Descriptions.Item label="MWAA DAG Bucket">{config.mwaaDagBucket}</Descriptions.Item>
+            <Descriptions.Item label="默认 VPC">{config.defaultVpcId}</Descriptions.Item>
+          </Descriptions>
+        ) : <Spin />}
       </Card>
 
       <Card title="服务状态" size="small">
-        {loading ? <Spin /> : health ? (
+        {health ? (
           <Space direction="vertical" style={{ width: "100%" }}>
             {[
               { key: "dynamodb", label: "DynamoDB", desc: "元数据存储" },
@@ -85,7 +97,7 @@ export default function SettingsPage() {
               </div>
             ))}
           </Space>
-        ) : null}
+        ) : <Spin />}
       </Card>
     </div>
   );

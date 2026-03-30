@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import { mapAllColumns, generateDDL } from "@/lib/sync/sync-service";
 import { apiOk, apiError } from "@/lib/api-response";

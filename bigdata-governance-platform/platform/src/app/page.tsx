@@ -4,14 +4,16 @@ import React, { useEffect, useState } from "react";
 import { Card, Col, Row, Statistic } from "antd";
 import { DatabaseOutlined, SyncOutlined, ApartmentOutlined, CheckCircleOutlined } from "@ant-design/icons";
 
+function extract(d: any) { return Array.isArray(d) ? d : d?.data || d || []; }
+
 export default function HomePage() {
   const [stats, setStats] = useState({ datasources: 0, syncTasks: 0, workflows: 0, running: 0 });
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/datasources").then((r) => r.json()),
-      fetch("/api/sync").then((r) => r.json()),
-      fetch("/api/workflow").then((r) => r.json()),
+      fetch("/api/datasources").then((r) => r.json()).then(extract),
+      fetch("/api/sync").then((r) => r.json()).then(extract),
+      fetch("/api/workflow").then((r) => r.json()).then(extract),
     ]).then(([ds, sync, wf]) => {
       setStats({
         datasources: ds.length,

@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import { RedshiftDataClient, CancelStatementCommand } from "@aws-sdk/client-redshift-data";
 import { apiOk, apiError } from "@/lib/api-response";

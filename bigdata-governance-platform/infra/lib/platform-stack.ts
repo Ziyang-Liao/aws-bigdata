@@ -48,6 +48,7 @@ export class PlatformStack extends cdk.Stack {
           AWS_REGION: "us-east-1",
           NEXT_PUBLIC_COGNITO_USER_POOL_ID: "us-east-1_JnGwRjVco",
           NEXT_PUBLIC_COGNITO_CLIENT_ID: "59m27ovhvfkjcsgfi8d29g0ju0",
+          COGNITO_USER_POOL_ID: "us-east-1_JnGwRjVco",
           REDSHIFT_WORKGROUP: "bgp-workgroup",
           GLUE_SCRIPTS_BUCKET: "bgp-glue-scripts-470377450205",
           GLUE_ROLE_ARN: "arn:aws:iam::470377450205:role/bgp-glue-role",

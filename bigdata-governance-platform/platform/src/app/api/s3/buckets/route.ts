@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { S3Client, ListBucketsCommand } from "@aws-sdk/client-s3";
 import { apiOk, apiError } from "@/lib/api-response";
 
