@@ -157,7 +157,7 @@ export default function SyncTaskModal({ open, editing, onClose, onSuccess }: Pro
           )}
           {/* SYNC-04: WHERE filter */}
           <Form.Item name="whereClause" label="数据过滤条件 (WHERE)">
-            <Input.TextArea rows={2} placeholder="例如: created_at >= '${run_date}' AND status = 'completed'" />
+            <Input.TextArea rows={2} placeholder={"例如: created_at >= '${run_date}' AND status = 'completed'"} />
           </Form.Item>
           <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>
             可用变量: <Tag>{"${run_date}"}</Tag> <Tag>{"${yesterday}"}</Tag> <Tag>{"${run_hour}"}</Tag>
@@ -287,9 +287,12 @@ export default function SyncTaskModal({ open, editing, onClose, onSuccess }: Pro
         </>)}
 
         {step === 3 && (<>
-          <div style={{ marginBottom: 12, color: "#666" }}>预览自动生成的建表 DDL，确认后可一键执行</div>
-          {selectedTables.map((tableName) => {
-            if (!ddlPreview[tableName]) fetchDDL(tableName);
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+            <span style={{ color: "#666" }}>预览自动生成的建表 DDL，确认后可一键执行</span>
+            <Button size="small" onClick={() => selectedTables.forEach(fetchDDL)}>全部刷新</Button>
+          </div>
+          {(targetType === "redshift" || targetType === "both") ? selectedTables.map((tableName) => {
+            if (!ddlPreview[tableName]) { fetchDDL(tableName); }
             const p = ddlPreview[tableName];
             return (
               <div key={tableName} style={{ marginBottom: 16, border: "1px solid #f0f0f0", borderRadius: 8, padding: 12 }}>
@@ -307,7 +310,7 @@ export default function SyncTaskModal({ open, editing, onClose, onSuccess }: Pro
                 </Space>
               </div>
             );
-          })}
+          }) : <Alert type="info" message="S3 目标无需建表，Parquet 文件自动创建" />}
           {selectedTables.length === 0 && <Alert type="info" message="请先选择同步表" />}
         </>)}
 

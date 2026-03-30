@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { generateDDL, mapAllColumns } from "@/lib/sync/sync-service";
+import { mapAllColumns, generateDDL } from "@/lib/sync/sync-service";
 import { apiOk, apiError } from "@/lib/api-response";
 import { RedshiftDataClient, ExecuteStatementCommand, DescribeStatementCommand } from "@aws-sdk/client-redshift-data";
 
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     distStyle: redshiftConfig?.distStyle,
   });
 
-  // Check if table exists
+  // Quick check if table exists (non-blocking, 5s max)
   let tableExists = false;
   try {
     const wg = redshiftConfig?.workgroupName || process.env.REDSHIFT_WORKGROUP || "bgp-workgroup";
@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
       Sql: `SELECT 1 FROM information_schema.tables WHERE table_schema='${schema}' AND table_name='${tableName}' LIMIT 1`,
       WorkgroupName: wg, Database: db,
     }));
-    for (let i = 0; i < 15; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
+    for (let i = 0; i < 5; i++) {
+      await new Promise((r) => setTimeout(r, 800));
       const desc = await rs.send(new DescribeStatementCommand({ Id }));
       if (desc.Status === "FINISHED") { tableExists = (desc.ResultRows || 0) > 0; break; }
       if (desc.Status === "FAILED") break;
