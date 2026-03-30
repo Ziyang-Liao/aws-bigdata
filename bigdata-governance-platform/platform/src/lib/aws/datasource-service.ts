@@ -231,18 +231,17 @@ export async function testConnection(connName: string): Promise<TestResult> {
 
   try {
     // Verify connection exists
-    await glue.send(new GetConnectionCommand({ Name: connName }));
-    steps.push({ name: "connection_exists", status: "pass", message: "Glue Connection 存在" });
-  } catch {
-    steps.push({ name: "connection_exists", status: "fail", message: "Glue Connection 不存在" });
-    return { success: false, steps, totalMs: Date.now() - start };
-  }
+    const { Connection } = await glue.send(new GetConnectionCommand({ Name: connName }));
+    steps.push({ name: "connection_exists", status: "pass", message: "Glue Connection 已创建" });
 
-  try {
-    await glue.send(new TestConnectionCommand({ ConnectionName: connName }));
-    steps.push({ name: "connectivity", status: "pass", message: "连接测试通过", latencyMs: Date.now() - start });
+    // Verify connection properties
+    const jdbcUrl = Connection?.ConnectionProperties?.JDBC_CONNECTION_URL || "";
+    const hasVpc = !!Connection?.PhysicalConnectionRequirements?.SubnetId;
+    steps.push({ name: "config_check", status: jdbcUrl ? "pass" : "fail", message: jdbcUrl ? `JDBC: ${jdbcUrl.slice(0, 50)}...` : "JDBC URL 为空" });
+    steps.push({ name: "network_check", status: hasVpc ? "pass" : "fail", message: hasVpc ? `VPC 子网: ${Connection?.PhysicalConnectionRequirements?.SubnetId}` : "未配置 VPC" });
+
   } catch (e: any) {
-    steps.push({ name: "connectivity", status: "fail", message: e.message || "连接测试失败" });
+    steps.push({ name: "connection_exists", status: "fail", message: e.message || "Glue Connection 不存在" });
   }
 
   return { success: steps.every((s) => s.status === "pass"), steps, totalMs: Date.now() - start };

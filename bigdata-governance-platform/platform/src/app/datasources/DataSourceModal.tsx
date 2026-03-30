@@ -30,7 +30,7 @@ export default function DataSourceModal({ open, editing, onClose, onSuccess }: P
 
   const handleTest = async () => {
     try {
-      const values = await form.validateFields();
+      const values = form.getFieldsValue(true); // Get ALL fields including hidden steps
       setTesting(true);
       setTestResult(null);
       const res = await fetch("/api/datasources/test", {
@@ -46,7 +46,7 @@ export default function DataSourceModal({ open, editing, onClose, onSuccess }: P
   };
 
   const handleSubmit = async () => {
-    const values = await form.validateFields();
+    const values = form.getFieldsValue(true); // Get ALL fields including hidden steps
     setSaving(true);
     try {
       const url = isEdit ? `/api/datasources/${editing.datasourceId}` : "/api/datasources";
@@ -87,8 +87,8 @@ export default function DataSourceModal({ open, editing, onClose, onSuccess }: P
       <Steps current={step} size="small" style={{ marginBottom: 24 }}
         items={[{ title: "基本信息" }, { title: "连接配置" }, { title: isEdit ? "完成" : "资源创建" }]} />
 
-      <Form form={form} layout="vertical" style={{ minHeight: 300 }}>
-        {step === 0 && (<>
+      <Form form={form} layout="vertical" style={{ minHeight: 300 }} preserve>
+        <div style={{ display: step === 0 ? undefined : "none" }}>
           <Form.Item name="name" label="数据源名称" rules={[{ required: true, message: "请输入名称" }]}>
             <Input placeholder="例如：电商业务库" />
           </Form.Item>
@@ -111,9 +111,9 @@ export default function DataSourceModal({ open, editing, onClose, onSuccess }: P
               <Radio.Button value="prod">生产</Radio.Button>
             </Radio.Group>
           </Form.Item>
-        </>)}
+        </div>
 
-        {step === 1 && (<>
+        <div style={{ display: step === 1 ? undefined : "none" }}>
           <div style={{ marginBottom: 16 }}>
             <Radio.Group value={connectMode} onChange={(e) => { setConnectMode(e.target.value); if (e.target.value === "rds") loadRdsInstances(); }}>
               <Radio.Button value="manual">手动输入</Radio.Button>
@@ -175,7 +175,7 @@ export default function DataSourceModal({ open, editing, onClose, onSuccess }: P
               }
             />
           )}
-        </>)}
+        </div>
 
         {step === 2 && (
           <Result status="success" title="数据源创建成功" subTitle="以下 AWS 资源已自动创建"
