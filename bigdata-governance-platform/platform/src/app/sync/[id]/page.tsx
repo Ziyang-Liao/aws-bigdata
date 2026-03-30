@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Button, Card, Descriptions, Space, Table, Tabs, Tag, Spin, message, Badge } from "antd";
-import { ArrowLeftOutlined, PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined, FileTextOutlined } from "@ant-design/icons";
+import { Button, Card, Descriptions, Space, Table, Tabs, Tag, Spin, message, Badge, Alert } from "antd";
+import { ArrowLeftOutlined, PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useParams, useRouter } from "next/navigation";
 
 const channelLabel: Record<string, string> = { "zero-etl": "Zero-ETL", glue: "Glue ETL", dms: "DMS CDC" };
@@ -14,6 +14,10 @@ export default function SyncDetailPage() {
   const [task, setTask] = useState<any>(null);
   const [runs, setRuns] = useState<any>({ runs: [], stats: {} });
   const [loading, setLoading] = useState(true);
+  const [glueRun, setGlueRun] = useState<any>(null);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [s3Files, setS3Files] = useState<any[]>([]);
 
   const fetchTask = async () => {
     const res = await fetch(`/api/sync/${id}`);
@@ -27,27 +31,69 @@ export default function SyncDetailPage() {
     setRuns(d.success ? d.data : d);
   };
 
-  useEffect(() => { Promise.all([fetchTask(), fetchRuns()]).finally(() => setLoading(false)); }, [id]);
+  const fetchGlueStatus = async (jobName: string) => {
+    try {
+      const res = await fetch(`/api/sync/${id}/glue-status`);
+      const d = await res.json();
+      if (d.success) setGlueRun(d.data);
+    } catch {}
+  };
+
+  const fetchLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const res = await fetch(`/api/sync/${id}/logs`);
+      const d = await res.json();
+      setLogs(d.success ? d.data : d.logs || []);
+    } catch {} finally { setLogsLoading(false); }
+  };
+
+  const fetchS3Output = async () => {
+    try {
+      const res = await fetch(`/api/sync/${id}/output`);
+      const d = await res.json();
+      if (d.success) setS3Files(d.data);
+    } catch {}
+  };
+
+  useEffect(() => {
+    Promise.all([fetchTask(), fetchRuns()]).finally(() => setLoading(false));
+  }, [id]);
+
+  useEffect(() => {
+    if (task?.glueJobName) { fetchGlueStatus(task.glueJobName); fetchLogs(); fetchS3Output(); }
+  }, [task?.glueJobName]);
+
+  // Auto-refresh when running
+  useEffect(() => {
+    if (task?.status !== "running") return;
+    const timer = setInterval(() => { fetchTask(); fetchGlueStatus(task.glueJobName); fetchLogs(); }, 10000);
+    return () => clearInterval(timer);
+  }, [task?.status]);
 
   const handleToggle = async () => {
     const action = task.status === "running" ? "stop" : "start";
-    await fetch(`/api/sync/${id}/${action}`, { method: "POST" });
+    const res = await fetch(`/api/sync/${id}/${action}`, { method: "POST" });
+    const data = await res.json();
+    if (data.success === false) { message.error(data.error?.message || "操作失败"); return; }
     message.success(action === "start" ? "已启动" : "已停止");
     fetchTask();
+    if (action === "start") setTimeout(() => { fetchGlueStatus(task.glueJobName); fetchLogs(); }, 5000);
   };
 
   if (loading) return <Spin size="large" style={{ display: "block", margin: "100px auto" }} />;
   if (!task) return <div>任务不存在</div>;
 
+  const s3OutputPath = task.s3Config?.bucket ? `s3://${task.s3Config.bucket}/${task.s3Config.prefix || ""}` : null;
+
   const runColumns = [
     { title: "#", key: "idx", render: (_: any, __: any, i: number) => runs.runs.length - i },
     { title: "开始时间", dataIndex: "startedAt", render: (v: string) => v?.slice(0, 19).replace("T", " ") },
     { title: "耗时", dataIndex: "duration", render: (v: number) => v ? `${Math.floor(v / 60)}m${v % 60}s` : "-" },
-    { title: "读取行数", key: "read", render: (_: any, r: any) => r.metrics?.rowsRead?.toLocaleString() || "-" },
-    { title: "写入行数", key: "write", render: (_: any, r: any) => r.metrics?.rowsWritten?.toLocaleString() || "-" },
-    { title: "触发方式", dataIndex: "triggeredBy", render: (v: string) => v === "schedule" ? "定时" : v === "manual" ? "手动" : v || "-" },
-    { title: "状态", dataIndex: "status", render: (v: string) => <Badge status={statusBadge[v] || "default"} text={v === "succeeded" ? "成功" : v === "failed" ? "失败" : v === "running" ? "运行中" : v} /> },
-    { title: "错误", dataIndex: "error", ellipsis: true, render: (v: string) => v ? <Tag color="red">{v.slice(0, 60)}</Tag> : "-" },
+    { title: "读取", key: "read", render: (_: any, r: any) => r.metrics?.rowsRead?.toLocaleString() || "-" },
+    { title: "写入", key: "write", render: (_: any, r: any) => r.metrics?.rowsWritten?.toLocaleString() || "-" },
+    { title: "状态", dataIndex: "status", render: (v: string) => <Badge status={statusBadge[v] || "default"} text={v === "succeeded" ? "成功" : v === "failed" ? "失败" : v} /> },
+    { title: "错误", dataIndex: "error", ellipsis: true, render: (v: string) => v ? <Tag color="red">{v.slice(0, 80)}</Tag> : "-" },
   ];
 
   const mappingData = task.fieldMappings ? Object.entries(task.fieldMappings).flatMap(([table, fields]: [string, any]) =>
@@ -59,41 +105,83 @@ export default function SyncDetailPage() {
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
         <Space>
           <Button icon={<ArrowLeftOutlined />} onClick={() => router.push("/sync")}>返回</Button>
-          <h2 style={{ margin: 0 }}>{task.name}</h2>
+          <h2 style={{ margin: 0 }}>{task.name || "同步任务"}</h2>
           <Badge status={statusBadge[task.status] || "default"} text={task.status} />
         </Space>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={() => { fetchTask(); fetchRuns(); }}>刷新</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => { fetchTask(); fetchRuns(); fetchLogs(); fetchS3Output(); }}>刷新</Button>
           <Button icon={task.status === "running" ? <PauseCircleOutlined /> : <PlayCircleOutlined />} type="primary" onClick={handleToggle}>
             {task.status === "running" ? "停止" : "启动"}
           </Button>
         </Space>
       </div>
 
+      {/* Config Summary */}
       <Card size="small" style={{ marginBottom: 16 }}>
         <Descriptions column={4} size="small">
           <Descriptions.Item label="通道">{channelLabel[task.channel] || task.channel}</Descriptions.Item>
           <Descriptions.Item label="模式">{task.syncMode === "full" ? "全量" : "增量"} / {task.writeMode}</Descriptions.Item>
           <Descriptions.Item label="目标">{task.targetType?.toUpperCase()}</Descriptions.Item>
           <Descriptions.Item label="调度">{task.cronExpression || "未配置"}</Descriptions.Item>
-          <Descriptions.Item label="数据源">{task.datasourceId?.slice(-8)}</Descriptions.Item>
-          <Descriptions.Item label="源库">{task.sourceDatabase}</Descriptions.Item>
           <Descriptions.Item label="源表">{task.sourceTables?.join(", ")}</Descriptions.Item>
-          <Descriptions.Item label="Glue Job">{task.glueJobName || "-"}</Descriptions.Item>
+          <Descriptions.Item label="Glue Job"><Tag color="blue">{task.glueJobName || "未创建"}</Tag></Descriptions.Item>
+          {s3OutputPath && <Descriptions.Item label="S3 输出" span={2}><Tag color="green">{s3OutputPath}</Tag></Descriptions.Item>}
         </Descriptions>
       </Card>
 
+      {/* Glue Run Status */}
+      {glueRun && (
+        <Card size="small" style={{ marginBottom: 16 }}>
+          <Descriptions column={4} size="small" title="最近运行">
+            <Descriptions.Item label="状态"><Badge status={glueRun.state === "SUCCEEDED" ? "success" : glueRun.state === "FAILED" ? "error" : glueRun.state === "RUNNING" ? "processing" : "default"} text={glueRun.state} /></Descriptions.Item>
+            <Descriptions.Item label="开始">{glueRun.startedOn?.slice(0, 19).replace("T", " ")}</Descriptions.Item>
+            <Descriptions.Item label="耗时">{glueRun.executionTime ? `${glueRun.executionTime}s` : "-"}</Descriptions.Item>
+            <Descriptions.Item label="DPU">{glueRun.dpuSeconds || "-"}</Descriptions.Item>
+            {glueRun.errorMessage && <Descriptions.Item label="错误" span={4}><Alert type="error" message={glueRun.errorMessage} /></Descriptions.Item>}
+          </Descriptions>
+        </Card>
+      )}
+
+      {/* Stats */}
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space size={48}>
-          <div><div style={{ fontSize: 24, fontWeight: "bold" }}>{runs.stats?.total || 0}</div><div style={{ color: "#888" }}>总运行次数</div></div>
+          <div><div style={{ fontSize: 24, fontWeight: "bold" }}>{runs.stats?.total || 0}</div><div style={{ color: "#888" }}>运行次数</div></div>
           <div><div style={{ fontSize: 24, fontWeight: "bold", color: "#52c41a" }}>{runs.stats?.successRate ? (runs.stats.successRate * 100).toFixed(0) + "%" : "N/A"}</div><div style={{ color: "#888" }}>成功率</div></div>
           <div><div style={{ fontSize: 24, fontWeight: "bold" }}>{runs.stats?.avgDuration ? Math.round(runs.stats.avgDuration) + "s" : "N/A"}</div><div style={{ color: "#888" }}>平均耗时</div></div>
-          <div><div style={{ fontSize: 24, fontWeight: "bold" }}>{runs.stats?.totalRows?.toLocaleString() || 0}</div><div style={{ color: "#888" }}>累计同步行数</div></div>
+          <div><div style={{ fontSize: 24, fontWeight: "bold" }}>{runs.stats?.totalRows?.toLocaleString() || 0}</div><div style={{ color: "#888" }}>累计行数</div></div>
         </Space>
       </Card>
 
       <Tabs items={[
-        { key: "runs", label: `运行历史 (${runs.runs?.length || 0})`, children: <Table columns={runColumns} dataSource={runs.runs} rowKey="runId" size="small" pagination={{ pageSize: 20 }} /> },
+        { key: "logs", label: "运行日志", children: (
+          <div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+              <Button size="small" onClick={fetchLogs} loading={logsLoading}>刷新日志</Button>
+            </div>
+            <div style={{ maxHeight: 500, overflow: "auto", background: "#1e1e1e", color: "#d4d4d4", padding: 16, borderRadius: 8, fontFamily: "monospace", fontSize: 12, lineHeight: 1.6 }}>
+              {logs.length > 0 ? logs.map((line, i) => (
+                <div key={i} style={{ color: line.includes("ERROR") || line.includes("error") ? "#ff6b6b" : line.includes("WARN") ? "#ffd43b" : line.includes("SYNC RESULTS") || line.includes("completed") ? "#69db7c" : "#d4d4d4" }}>
+                  {line}
+                </div>
+              )) : <span style={{ color: "#808080" }}>{task.glueJobName ? "日志加载中... 任务启动后约 30 秒开始输出日志" : "任务未启动，无日志"}</span>}
+            </div>
+          </div>
+        )},
+        { key: "output", label: "输出结果", children: (
+          <div>
+            {s3OutputPath && (
+              <Alert type="info" message={`数据输出位置: ${s3OutputPath}`} style={{ marginBottom: 16 }} />
+            )}
+            {s3Files.length > 0 ? (
+              <Table size="small" dataSource={s3Files} rowKey="key" columns={[
+                { title: "文件路径", dataIndex: "key", render: (v: string) => <code style={{ fontSize: 11 }}>{v}</code> },
+                { title: "大小", dataIndex: "size", render: (v: number) => v > 1024 * 1024 ? `${(v / 1024 / 1024).toFixed(1)} MB` : `${(v / 1024).toFixed(1)} KB` },
+                { title: "修改时间", dataIndex: "lastModified", render: (v: string) => v?.slice(0, 19).replace("T", " ") },
+              ]} />
+            ) : <div style={{ color: "#999", textAlign: "center", padding: 40 }}>任务运行完成后将显示输出文件列表</div>}
+          </div>
+        )},
+        { key: "runs", label: `运行历史 (${runs.runs?.length || 0})`, children: <Table columns={runColumns} dataSource={runs.runs} rowKey="runId" size="small" /> },
         { key: "mapping", label: "字段映射", children: (
           <Table size="small" dataSource={mappingData} pagination={false} columns={[
             { title: "表", dataIndex: "table", render: (v: string) => <b>{v}</b> },
