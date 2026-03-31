@@ -74,30 +74,38 @@ for table_name in tables:
     print(f"Schema: {df.dtypes}")
 ${writeS3 ? `
     # Write to S3 Tables (managed Iceberg)
-    s3t_full_name = f"{S3T_CATALOG}.{S3T_BUCKET}.{S3T_NAMESPACE}.{table_name}"
     temp_view = f"temp_{table_name}"
     df.createOrReplaceTempView(temp_view)
+    s3t_table = f"s3tablescatalog.{S3T_NAMESPACE}.{table_name}"
 
     try:
-        # Write to S3 Tables via Iceberg Spark catalog (configured via --conf)
-        # Catalog name: s3tablesbucket (registered via Glue Job --conf)
-        # Table path: s3tablesbucket.{namespace}.{table_name}
-        temp_view = f"temp_{table_name}"
-        df.createOrReplaceTempView(temp_view)
-
-        s3t_table = f"s3tablesbucket.{S3T_NAMESPACE}.{table_name}"
-
-        # Try CREATE TABLE AS SELECT (for new table)
+        # Step 1: Check if table exists by trying to read it
+        table_exists = False
         try:
+            spark.sql(f"SELECT 1 FROM {s3t_table} LIMIT 1")
+            table_exists = True
+            print(f"Table {s3t_table} exists")
+        except:
+            print(f"Table {s3t_table} does not exist, will create")
+
+        # Step 2: Write data
+        if table_exists:
+${writeMode === "overwrite" ? `            # Overwrite: truncate then insert
+            spark.sql(f"DELETE FROM {s3t_table}")
             spark.sql(f"INSERT INTO {s3t_table} SELECT * FROM {temp_view}")
-            print(f"INSERT INTO {s3t_table} succeeded")
-        except Exception as insert_err:
-            if "TABLE_OR_VIEW_NOT_FOUND" in str(insert_err) or "not found" in str(insert_err).lower():
-                # Table schema not set yet, use CTAS
-                spark.sql(f"CREATE TABLE {s3t_table} USING iceberg AS SELECT * FROM {temp_view}")
-                print(f"CREATE TABLE {s3t_table} succeeded")
-            else:
-                raise insert_err
+            print(f"OVERWRITE {s3t_table}: deleted old data + inserted {row_count} rows")` : `            # Append
+            spark.sql(f"INSERT INTO {s3t_table} SELECT * FROM {temp_view}")
+            print(f"APPEND {s3t_table}: inserted {row_count} rows")`}
+        else:
+            # Create new table with data
+${partitionFields.length > 0 ? `            partition_clause = "PARTITIONED BY (${partitionFields.map((p: any) => {
+    if (p.type === "date") return `days(${p.field})`;
+    if (p.type === "year-month") return `months(${p.field})`;
+    return p.field;
+  }).join(", ")})"` : `            partition_clause = ""`}
+            create_sql = f"CREATE TABLE {s3t_table} USING iceberg {partition_clause} TBLPROPERTIES ('format-version'='2', 'write.parquet.compression-codec'='zstd') AS SELECT * FROM {temp_view}"
+            spark.sql(create_sql)
+            print(f"CREATED {s3t_table} with {row_count} rows")
 
         print(f"Written to S3 Tables: {s3t_table}")
         print(f"Table Bucket: {S3T_BUCKET_RAW}, Namespace: {S3T_NAMESPACE}")

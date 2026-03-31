@@ -44,16 +44,16 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
       await glue.send(new CreateJobCommand({
         Name: jobName, Role: roleArn,
         Command: { Name: "glueetl", ScriptLocation: `s3://${bucket}/${scriptKey}`, PythonVersion: "3" },
-        GlueVersion: "5.0", NumberOfWorkers: 2, WorkerType: "G.1X",
+        GlueVersion: "5.1", NumberOfWorkers: 2, WorkerType: "G.1X",
         DefaultArguments: {
           "--datalake-formats": "iceberg",
           "--TempDir": `s3://${bucket}/temp/`,
           "--conf": [
-            "spark.sql.catalog.s3tablesbucket=org.apache.iceberg.spark.SparkCatalog",
-            "spark.sql.catalog.s3tablesbucket.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog",
-            "spark.sql.catalog.s3tablesbucket.glue.id=470377450205:s3tablescatalog/bgp-table-bucket",
-            "spark.sql.catalog.s3tablesbucket.warehouse=arn:aws:s3tables:us-east-1:470377450205:bucket/bgp-table-bucket",
-            "spark.sql.catalog.s3tablesbucket.io-impl=org.apache.iceberg.aws.s3.S3FileIO",
+            "spark.sql.catalog.s3tablescatalog=org.apache.iceberg.spark.SparkCatalog",
+            "spark.sql.catalog.s3tablescatalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog",
+            "spark.sql.catalog.s3tablescatalog.glue.id=470377450205:s3tablescatalog/bgp-table-bucket",
+            "spark.sql.catalog.s3tablescatalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO",
+            "spark.sql.catalog.s3tablescatalog.warehouse=arn:aws:s3tables:us-east-1:470377450205:bucket/bgp-table-bucket",
           ].join(" --conf "),
         },
         Connections: connName ? { Connections: [connName] } : undefined,
@@ -65,7 +65,7 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
           await glue.send(new CreateJobCommand({
             Name: jobName, Role: roleArn,
             Command: { Name: "glueetl", ScriptLocation: `s3://${bucket}/${scriptKey}`, PythonVersion: "3" },
-            GlueVersion: "4.0", NumberOfWorkers: 2, WorkerType: "G.1X",
+            GlueVersion: "5.1", NumberOfWorkers: 2, WorkerType: "G.1X",
             DefaultArguments: { "--datalake-formats": "iceberg" },
             Connections: connName ? { Connections: [connName] } : undefined,
           }));
