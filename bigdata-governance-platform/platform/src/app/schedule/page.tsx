@@ -39,10 +39,17 @@ export default function SchedulePage() {
     fetchData();
   };
 
-  const toggleSchedule = async (id: string, type: string, enabled: boolean) => {
-    const url = type === "sync" ? `/api/sync/${id}` : `/api/workflow/${id}`;
-    await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scheduleEnabled: enabled }) });
-    message.success(enabled ? "已启用" : "已暂停");
+  const toggleSchedule = async (id: string, type: string, enabled: boolean, cron: string) => {
+    const res = await fetch("/api/schedule/enable", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ taskId: id, taskType: type, cronExpression: cron || "0 2 * * *", enabled }),
+    });
+    const d = await res.json();
+    if (d.success !== false) {
+      message.success(enabled ? "调度已启用 (EventBridge Scheduler)" : "调度已停用");
+    } else {
+      message.error(d.error?.message || "调度配置失败");
+    }
     fetchData();
   };
 
@@ -62,7 +69,10 @@ export default function SchedulePage() {
       </Space>
     )},
     { title: "启用", key: "enabled", render: (_: any, r: any) => (
-      <Switch size="small" checked={r.scheduleEnabled} onChange={(v) => toggleSchedule(r.itemId, r.itemType, v)} />
+      <Switch size="small" checked={r.scheduleEnabled} onChange={(v) => toggleSchedule(r.itemId, r.itemType, v, r.cronExpression)} />
+    )},
+    { title: "调度引擎", key: "engine", render: (_: any, r: any) => (
+      r.scheduleName ? <Tag color="green">EventBridge: {r.scheduleName}</Tag> : <Tag>未配置</Tag>
     )},
     { title: "状态", dataIndex: "status", key: "status", render: (v: string) => <Badge status={v === "running" || v === "active" ? "processing" : v === "error" ? "error" : "default"} text={v} /> },
   ];

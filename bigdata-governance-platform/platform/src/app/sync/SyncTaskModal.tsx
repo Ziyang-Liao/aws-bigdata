@@ -231,6 +231,24 @@ export default function SyncTaskModal({ open, editing, onClose, onSuccess }: Pro
                   </div>
                 )}
               </Form.List>
+              <Divider>Iceberg 表参数</Divider>
+              <Form.Item name={["s3Config", "format"]} label="存储格式" initialValue="iceberg">
+                <Select style={{ width: 200 }} options={[{ label: "Iceberg (推荐，支持ACID)", value: "iceberg" }, { label: "Parquet (普通文件)", value: "parquet" }]} />
+              </Form.Item>
+              <Space size={16}>
+                <Form.Item name={["s3Config", "icebergConfig", "snapshotRetentionDays"]} label="快照保留天数" initialValue={7}>
+                  <InputNumber min={1} max={365} style={{ width: 120 }} />
+                </Form.Item>
+                <Form.Item name={["s3Config", "icebergConfig", "maxSnapshots"]} label="最大快照数" initialValue={100}>
+                  <InputNumber min={1} max={1000} style={{ width: 120 }} />
+                </Form.Item>
+                <Form.Item name={["s3Config", "icebergConfig", "compactionMinutes"]} label="自动合并间隔(分钟)" initialValue={60}>
+                  <InputNumber min={5} max={1440} style={{ width: 140 }} />
+                </Form.Item>
+              </Space>
+              <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>
+                💡 Iceberg 表支持 ACID 事务、Schema 演进、时间旅行查询。数据自动注册到 Glue Data Catalog，可通过 Athena/Redshift Spectrum 直接查询。
+              </div>
             </div>
           )}
           {(targetType === "redshift" || targetType === "both") && (
