@@ -12,19 +12,15 @@ export function generateGlueScript(task: any, ds: DataSource): string {
   const tables = task.sourceTables || [];
   const writeS3 = task.targetType === "s3-tables" || task.targetType === "both";
   const writeRedshift = task.targetType === "redshift" || task.targetType === "both";
-  const s3Bucket = task.s3Config?.bucket || "bgp-datalake-470377450205";
-  const s3Prefix = task.s3Config?.prefix || "";
   const partitionFields = task.s3Config?.partitionFields || [];
   const writeMode = task.writeMode || "overwrite";
-  const format = task.s3Config?.format || "iceberg";
 
-  // Iceberg config
+  // S3 Tables config
+  const tableBucketName = task.s3Config?.tableBucket || "bgp-table-bucket";
+  const namespace = task.s3Config?.namespace || task.s3Config?.prefix?.replace(/\//g, "") || "ecommerce";
   const icebergConfig = task.s3Config?.icebergConfig || {};
-  const compactionMins = icebergConfig.compactionMinutes || 60;
   const snapshotRetention = icebergConfig.snapshotRetentionDays || 7;
   const maxSnapshots = icebergConfig.maxSnapshots || 100;
-
-  const useIceberg = format === "iceberg" || format === "parquet"; // Default to Iceberg
 
   return `import sys
 import json
@@ -33,22 +29,13 @@ from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
-from pyspark.sql import SparkSession
 
 args = getResolvedOptions(sys.argv, ["JOB_NAME"])
 sc = SparkContext()
 glueContext = GlueContext(sc)
+spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args["JOB_NAME"], args)
-
-# Configure Spark for Iceberg
-spark = SparkSession.builder \\
-    .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \\
-    .config("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalog") \\
-    .config("spark.sql.catalog.glue_catalog.warehouse", "s3://${s3Bucket}/${s3Prefix}") \\
-    .config("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog") \\
-    .config("spark.sql.catalog.glue_catalog.io-impl", "org.apache.iceberg.aws.s3.S3FileIO") \\
-    .getOrCreate()
 
 # Get credentials from Secrets Manager
 sm = boto3.client("secretsmanager", region_name="${process.env.AWS_REGION || "us-east-1"}")
@@ -58,13 +45,14 @@ db_pass = secret["password"]
 
 jdbc_url = "${jdbcUrl}"
 tables = ${JSON.stringify(tables)}
-results = {}
+results = ${"{}"}
 
-# Ensure Glue database exists
-try:
-    spark.sql("CREATE DATABASE IF NOT EXISTS glue_catalog.${s3Prefix.replace(/\//g, "") || "datalake"}")
-except Exception as e:
-    print(f"Database creation note: {e}")
+# S3 Tables catalog path (backtick bucket name with hyphens)
+S3T_CATALOG = "s3tablescatalog"
+S3T_BUCKET_RAW = "${tableBucketName}"
+BT = chr(96)
+S3T_BUCKET = BT + S3T_BUCKET_RAW + BT
+S3T_NAMESPACE = "${namespace}"
 
 for table_name in tables:
     print(f"\\n{'='*60}")
@@ -84,50 +72,44 @@ for table_name in tables:
     col_count = len(df.columns)
     print(f"Read {row_count} rows, {col_count} columns from {table_name}")
     print(f"Schema: {df.dtypes}")
-${writeS3 && useIceberg ? `
-    # Write to Iceberg table via Glue Catalog
-    iceberg_db = "glue_catalog.${s3Prefix.replace(/\//g, "") || "datalake"}"
-    iceberg_table = f"{iceberg_db}.{table_name}"
+${writeS3 ? `
+    # Write to S3 Tables (managed Iceberg)
+    s3t_full_name = f"{S3T_CATALOG}.{S3T_BUCKET}.{S3T_NAMESPACE}.{table_name}"
+    temp_view = f"temp_{table_name}"
+    df.createOrReplaceTempView(temp_view)
 
     try:
-        # Create or replace Iceberg table
-        df.writeTo(iceberg_table) \\
-            .using("iceberg") \\
-${partitionFields.length > 0 ? `            .partitionedBy(${partitionFields.map((p: any) => {
-    if (p.type === "date") return `days("${p.field}")`;
-    if (p.type === "year-month") return `months("${p.field}")`;
-    return `"${p.field}"`;
-  }).join(", ")}) \\` : ""}
-            .tableProperty("format-version", "2") \\
-            .tableProperty("write.metadata.compression-codec", "gzip") \\
-            .tableProperty("history.expire.max-snapshot-age-ms", "${snapshotRetention * 86400000}") \\
-            .tableProperty("history.expire.min-snapshots-to-keep", "${maxSnapshots}") \\
-            .tableProperty("write.target-file-size-bytes", "134217728") \\
-            .tableProperty("write.parquet.compression-codec", "zstd") \\
-            .${writeMode === "overwrite" ? "createOrReplace" : "append"}()
+        # Write to S3 Tables via Iceberg Spark catalog (configured via --conf)
+        # Catalog name: s3tablesbucket (registered via Glue Job --conf)
+        # Table path: s3tablesbucket.{namespace}.{table_name}
+        temp_view = f"temp_{table_name}"
+        df.createOrReplaceTempView(temp_view)
 
-        print(f"Written to Iceberg: {iceberg_table}")
-        print(f"Iceberg config: snapshot_retention={snapshotRetention}d, max_snapshots={maxSnapshots}")
+        s3t_table = f"s3tablesbucket.{S3T_NAMESPACE}.{table_name}"
+
+        # Try CREATE TABLE AS SELECT (for new table)
+        try:
+            spark.sql(f"INSERT INTO {s3t_table} SELECT * FROM {temp_view}")
+            print(f"INSERT INTO {s3t_table} succeeded")
+        except Exception as insert_err:
+            if "TABLE_OR_VIEW_NOT_FOUND" in str(insert_err) or "not found" in str(insert_err).lower():
+                # Table schema not set yet, use CTAS
+                spark.sql(f"CREATE TABLE {s3t_table} USING iceberg AS SELECT * FROM {temp_view}")
+                print(f"CREATE TABLE {s3t_table} succeeded")
+            else:
+                raise insert_err
+
+        print(f"Written to S3 Tables: {s3t_table}")
+        print(f"Table Bucket: {S3T_BUCKET_RAW}, Namespace: {S3T_NAMESPACE}")
 ${partitionFields.length > 0 ? `        print(f"Partitioned by: ${partitionFields.map((p: any) => `${p.field}(${p.type})`).join(", ")}")` : ""}
+
     except Exception as e:
-        print(f"Iceberg write failed, falling back to Parquet: {e}")
-        # Fallback to plain Parquet
-        s3_path = f"s3://${s3Bucket}/${s3Prefix}{table_name}/"
-        writer = df.write.mode("${writeMode === "overwrite" ? "overwrite" : "append"}")
-${partitionFields.length > 0 ? `        partition_cols = [c for c in [${partitionFields.map((p: any) => `"${p.field}"`).join(", ")}] if c in df.columns]
-        if partition_cols:
-            writer = writer.partitionBy(*partition_cols)` : ""}
-        writer.parquet(s3_path)
-        print(f"Fallback written to S3: {s3_path}")
-` : writeS3 ? `
-    # Write to S3 as Parquet
-    s3_path = f"s3://${s3Bucket}/${s3Prefix}{table_name}/"
-    writer = df.write.mode("${writeMode === "overwrite" ? "overwrite" : "append"}")
-${partitionFields.length > 0 ? `    partition_cols = [c for c in [${partitionFields.map((p: any) => `"${p.field}"`).join(", ")}] if c in df.columns]
-    if partition_cols:
-        writer = writer.partitionBy(*partition_cols)` : ""}
-    writer.parquet(s3_path)
-    print(f"Written to S3: {s3_path}")
+        error_msg = str(e)
+        print(f"S3 Tables write error: {error_msg[:300]}")
+        # Fallback: plain S3 Parquet
+        s3_path = f"s3://bgp-datalake-470377450205/${task.s3Config?.prefix || "ecommerce/"}{table_name}/"
+        df.write.mode("overwrite").parquet(s3_path)
+        print(f"Fallback to S3 Parquet: {s3_path}")
 ` : ""}${writeRedshift ? `
     # Write to Redshift
     rs_schema = "${task.redshiftConfig?.schema || "public"}"
@@ -136,9 +118,7 @@ ${partitionFields.length > 0 ? `    partition_cols = [c for c in [${partitionFie
     try:
         df.write.format("jdbc").options(
             url="jdbc:redshift://${task.redshiftConfig?.workgroupName || "bgp-workgroup"}.470377450205.us-east-1.redshift-serverless.amazonaws.com:5439/${task.redshiftConfig?.database || "dev"}",
-            dbtable=rs_table,
-            user="admin",
-            password="TempPass123!",
+            dbtable=rs_table, user="admin", password="TempPass123!",
             driver="com.amazon.redshift.jdbc42.Driver",
         ).mode("${writeMode === "overwrite" ? "overwrite" : "append"}").save()
         print(f"Written to Redshift: {rs_table}")
@@ -150,8 +130,7 @@ ${partitionFields.length > 0 ? `    partition_cols = [c for c in [${partitionFie
 
 print(f"\\n{'='*60}")
 print(f"SYNC RESULTS: {json.dumps(results)}")
-print(f"Output: s3://${s3Bucket}/${s3Prefix}")
-print(f"Format: ${useIceberg ? "Iceberg (Glue Catalog)" : "Parquet"}")
+print(f"Target: S3 Tables (${tableBucketName}/${namespace})")
 print(f"{'='*60}")
 
 job.commit()

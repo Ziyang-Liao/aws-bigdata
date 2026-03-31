@@ -208,11 +208,18 @@ export default function SyncTaskModal({ open, editing, onClose, onSuccess }: Pro
         <div style={{ display: step === 2 ? undefined : "none" }}>
           {(targetType === "s3-tables" || targetType === "both") && (
             <div>
-              <Divider>S3 数据湖配置</Divider>
+              <Divider>S3 Tables 数据湖配置</Divider>
               <Space size={16}>
-                <Form.Item name={["s3Config", "bucket"]} label="S3 Bucket"><Select style={{ width: 300 }} showSearch options={s3Buckets.map((b) => ({ label: b, value: b }))} placeholder="选择 Bucket" /></Form.Item>
-                <Form.Item name={["s3Config", "prefix"]} label="路径前缀"><Input placeholder="ecommerce/" style={{ width: 200 }} /></Form.Item>
+                <Form.Item name={["s3Config", "tableBucket"]} label="Table Bucket" initialValue="bgp-table-bucket">
+                  <Input style={{ width: 250 }} placeholder="bgp-table-bucket" />
+                </Form.Item>
+                <Form.Item name={["s3Config", "namespace"]} label="Namespace" initialValue="ecommerce">
+                  <Input placeholder="ecommerce" style={{ width: 200 }} />
+                </Form.Item>
               </Space>
+              <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
+                💡 S3 Tables 是 AWS 托管的 Iceberg 表服务，自动管理快照、压缩、合并。数据通过 Glue Catalog 的 s3tablescatalog 访问。
+              </div>
               <Form.Item name={["s3Config", "format"]} label="文件格式" initialValue="parquet">
                 <Select style={{ width: 200 }} options={[{ label: "Parquet (推荐)", value: "parquet" }, { label: "ORC", value: "orc" }, { label: "CSV", value: "csv" }]} />
               </Form.Item>
@@ -233,7 +240,7 @@ export default function SyncTaskModal({ open, editing, onClose, onSuccess }: Pro
               </Form.List>
               <Divider>Iceberg 表参数</Divider>
               <Form.Item name={["s3Config", "format"]} label="存储格式" initialValue="iceberg">
-                <Select style={{ width: 200 }} options={[{ label: "Iceberg (推荐，支持ACID)", value: "iceberg" }, { label: "Parquet (普通文件)", value: "parquet" }]} />
+                <Select style={{ width: 200 }} disabled options={[{ label: "Iceberg (S3 Tables 托管)", value: "iceberg" }]} />
               </Form.Item>
               <Space size={16}>
                 <Form.Item name={["s3Config", "icebergConfig", "snapshotRetentionDays"]} label="快照保留天数" initialValue={7}>
