@@ -36,7 +36,14 @@ export default function SyncDetailPage() {
     try {
       const res = await fetch(`/api/sync/${id}/glue-status`);
       const d = await res.json();
-      if (d.success) setGlueRun(d.data);
+      if (d.success) {
+        setGlueRun(d.data);
+        // If Glue finished, refresh task and runs to get updated status
+        if (d.data?.state === "SUCCEEDED" || d.data?.state === "FAILED") {
+          fetchTask();
+          fetchRuns();
+        }
+      }
     } catch {}
   };
 
@@ -85,7 +92,10 @@ export default function SyncDetailPage() {
   if (loading) return <Spin size="large" style={{ display: "block", margin: "100px auto" }} />;
   if (!task) return <div>任务不存在</div>;
 
-  const s3OutputPath = task.s3Config?.bucket ? `s3://${task.s3Config.bucket}/${task.s3Config.prefix || ""}` : null;
+  const isS3Tables = !!task.s3Config?.tableBucket;
+  const outputDisplay = isS3Tables
+    ? `S3 Tables: ${task.s3Config.tableBucket}/${task.s3Config.namespace || "ecommerce"}`
+    : task.s3Config?.bucket ? `s3://${task.s3Config.bucket}/${task.s3Config.prefix || ""}` : null;
 
 
   const viewRunLog = async (runId: string) => {
@@ -144,7 +154,7 @@ export default function SyncDetailPage() {
           <Descriptions.Item label="调度">{task.cronExpression || "未配置"}</Descriptions.Item>
           <Descriptions.Item label="源表">{task.sourceTables?.join(", ")}</Descriptions.Item>
           <Descriptions.Item label="Glue Job"><Tag color="blue">{task.glueJobName || "未创建"}</Tag></Descriptions.Item>
-          {s3OutputPath && <Descriptions.Item label="S3 输出" span={2}><Tag color="green">{s3OutputPath}</Tag></Descriptions.Item>}
+          {outputDisplay && <Descriptions.Item label="数据输出" span={2}><Tag color="green">{outputDisplay}</Tag></Descriptions.Item>}
         </Descriptions>
       </Card>
 
@@ -188,8 +198,8 @@ export default function SyncDetailPage() {
         )},
         { key: "output", label: "输出结果", children: (
           <div>
-            {s3OutputPath && (
-              <Alert type="info" message={`数据输出位置: ${s3OutputPath}`} style={{ marginBottom: 16 }} />
+            {outputDisplay && (
+              <Alert type="info" message={`数据输出位置: ${outputDisplay}`} style={{ marginBottom: 16 }} />
             )}
             {s3Files.length > 0 ? (
               <Table size="small" dataSource={s3Files} rowKey="key" columns={[
