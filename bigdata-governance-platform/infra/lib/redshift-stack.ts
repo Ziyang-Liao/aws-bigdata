@@ -18,7 +18,7 @@ export class RedshiftStack extends cdk.Stack {
       namespaceName: "bgp-namespace",
       dbName: "dev",
       adminUsername: "admin",
-      adminUserPassword: "TempPass123!",
+      adminUserPassword: cdk.SecretValue.unsafePlainText(process.env.REDSHIFT_ADMIN_PASSWORD || "ChangeMe123!").toString(),
     });
 
     const workgroup = new redshiftserverless.CfnWorkgroup(this, "BgpWorkgroup", {

@@ -18,7 +18,7 @@
 
 GET /api/settings/glue-role
 Response: {
-  roleArn: "arn:aws:iam::470377450205:role/bgp-glue-role",
+  roleArn: "arn:aws:iam::<ACCOUNT_ID>:role/bgp-glue-role",
   exists: true,
   policies: ["AWSGlueServiceRole", "bgp-s3-access", "bgp-secrets-read"]
 }

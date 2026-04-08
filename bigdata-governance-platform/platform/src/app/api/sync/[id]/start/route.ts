@@ -90,7 +90,7 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
 
     // Generate script
     const script = generateGlueScript(task, ds as DataSource);
-    const bucket = process.env.GLUE_SCRIPTS_BUCKET || `bgp-glue-scripts-${process.env.AWS_ACCOUNT_ID || "689738461915"}`;
+    const bucket = process.env.GLUE_SCRIPTS_BUCKET || `bgp-glue-scripts-${process.env.AWS_ACCOUNT_ID}`;
     const scriptKey = `glue-scripts/${task.taskId}.py`;
     await s3.send(new PutObjectCommand({ Bucket: bucket, Key: scriptKey, Body: script }));
 
@@ -108,9 +108,9 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
           "--conf": [
             "spark.sql.catalog.s3tablescatalog=org.apache.iceberg.spark.SparkCatalog",
             "spark.sql.catalog.s3tablescatalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog",
-            `spark.sql.catalog.s3tablescatalog.glue.id=${process.env.AWS_ACCOUNT_ID || "689738461915"}:s3tablescatalog/bgp-table-bucket`,
+            `spark.sql.catalog.s3tablescatalog.glue.id=${process.env.AWS_ACCOUNT_ID}:s3tablescatalog/bgp-table-bucket`,
             "spark.sql.catalog.s3tablescatalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO",
-            `spark.sql.catalog.s3tablescatalog.warehouse=arn:aws:s3tables:us-east-1:${process.env.AWS_ACCOUNT_ID || "689738461915"}:bucket/bgp-table-bucket`,
+            `spark.sql.catalog.s3tablescatalog.warehouse=arn:aws:s3tables:us-east-1:${process.env.AWS_ACCOUNT_ID}:bucket/bgp-table-bucket`,
           ].join(" --conf "),
         },
         Connections: connName ? { Connections: [connName] } : undefined,
@@ -216,7 +216,7 @@ async function pollGlueJob(taskId: string, runId: string, jobName: string, jobRu
 
           if (allLogs.length > 0) {
             const { PutObjectCommand } = await import("@aws-sdk/client-s3");
-            const bucket = process.env.GLUE_SCRIPTS_BUCKET || `bgp-glue-scripts-${process.env.AWS_ACCOUNT_ID || "689738461915"}`;
+            const bucket = process.env.GLUE_SCRIPTS_BUCKET || `bgp-glue-scripts-${process.env.AWS_ACCOUNT_ID}`;
             logS3Key = `logs/${taskId}/${runId}.log`;
             await s3.send(new PutObjectCommand({
               Bucket: bucket, Key: logS3Key,

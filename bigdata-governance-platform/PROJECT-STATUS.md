@@ -1,9 +1,9 @@
 # 项目状态与后续计划
 
 > 更新时间: 2026-03-30 10:00 UTC
-> 平台地址: http://BgpPla-BgpSe-evoV3iwr6pOV-467842334.us-east-1.elb.amazonaws.com
+> 平台地址: http://<PLATFORM_URL>
 > GitHub: https://github.com/Ziyang-Liao/aws-bigdata/tree/main/bigdata-governance-platform
-> 临时账号: 470377450205 (profile: temp-account)
+> 临时账号: <ACCOUNT_ID> (profile: temp-account)
 
 ---
 
@@ -36,14 +36,14 @@ bigdata-governance-platform/
 
 | 资源 | 标识 |
 |------|------|
-| VPC | vpc-0c0289626d1aa4620 (2AZ, 公有+私有子网) |
+| VPC | <VPC_ID> (2AZ, 公有+私有子网) |
 | RDS MySQL | bgp-source-mysql (私有子网, ecommerce库) |
 | Redshift Serverless | bgp-workgroup / bgp-namespace |
-| Cognito | us-east-1_JnGwRjVco / admin用户 |
+| Cognito | <COGNITO_POOL_ID> / admin用户 |
 | DynamoDB | 7张表 (datasources/sync-tasks/workflows/redshift-tasks/task-runs/sql-history/lineage) |
 | ECS Fargate | bgp-cluster / bgp-platform (ALB公网) |
 | Glue | bgp-glue-role / bgp-mysql-connection / 多个sync Job |
-| S3 | bgp-datalake-470377450205 / bgp-glue-scripts-470377450205 / bgp-mwaa-dags-470377450205 |
+| S3 | bgp-datalake-<ACCOUNT_ID> / bgp-glue-scripts-<ACCOUNT_ID> / bgp-mwaa-dags-<ACCOUNT_ID> |
 | Secrets Manager | bgp/datasource/* (数据源密码) |
 
 ## 三、已完成功能 ✅

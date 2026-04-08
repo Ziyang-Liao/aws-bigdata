@@ -276,10 +276,10 @@ JSON               → SUPER             → STRING
   AWS Region:        [us-east-1 ▼]
   默认 VPC:          [vpc-0c0289626d1aa4620 ▼] (自动发现)
   默认子网:          [subnet-00aed4243b32bc1ad ▼] (私有子网)
-  Glue IAM Role:     arn:aws:iam::470377450205:role/bgp-glue-role
-  Glue 脚本 Bucket:  bgp-glue-scripts-470377450205
-  数据湖 Bucket:     bgp-datalake-470377450205
-  MWAA DAG Bucket:   bgp-mwaa-dags-470377450205
+  Glue IAM Role:     arn:aws:iam::<ACCOUNT_ID>:role/bgp-glue-role
+  Glue 脚本 Bucket:  bgp-glue-scripts-<ACCOUNT_ID>
+  数据湖 Bucket:     bgp-datalake-<ACCOUNT_ID>
+  MWAA DAG Bucket:   bgp-mwaa-dags-<ACCOUNT_ID>
   Redshift Workgroup: bgp-workgroup
 
 服务状态检查:

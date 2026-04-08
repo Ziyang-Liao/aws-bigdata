@@ -48,7 +48,7 @@
 6. Next.js build 验证通过，CDK tsc 编译通过
 
 ### 关键决策
-- 后续所有 AWS 资源使用 `temp-account` profile 部署（账号 470377450205）
+- 后续所有 AWS 资源使用 `temp-account` profile 部署（账号 <ACCOUNT_ID>）
 - tailwindcss 使用 v3（v4 与 Next.js 14 不兼容）
 - Ant Design preflight 关闭（corePlugins.preflight: false）避免与 Tailwind 冲突
 

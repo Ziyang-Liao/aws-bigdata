@@ -25,7 +25,7 @@ export class RdsStack extends cdk.Stack {
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [sg],
       databaseName: "ecommerce",
-      credentials: rds.Credentials.fromPassword("admin", cdk.SecretValue.unsafePlainText("Admin123!")),
+      credentials: rds.Credentials.fromGeneratedSecret("admin"),
       allocatedStorage: 20,
       maxAllocatedStorage: 50,
       multiAz: false,

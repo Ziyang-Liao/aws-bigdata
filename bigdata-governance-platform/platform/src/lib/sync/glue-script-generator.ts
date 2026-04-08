@@ -37,6 +37,9 @@ spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args["JOB_NAME"], args)
 
+# Get AWS account ID
+account_id = boto3.client("sts").get_caller_identity()["Account"]
+
 # Get credentials from Secrets Manager
 sm = boto3.client("secretsmanager", region_name="${process.env.AWS_REGION || "us-east-1"}")
 secret = json.loads(sm.get_secret_value(SecretId="${ds.secretArn || ""}")["SecretString"])
@@ -122,8 +125,8 @@ ${partitionFields.length > 0 ? `        print(f"Partitioned by: ${partitionField
     print(f"Writing to Redshift: {rs_table}")
     try:
         df.write.format("jdbc").options(
-            url="jdbc:redshift://${task.redshiftConfig?.workgroupName || "bgp-workgroup"}.689738461915.us-east-1.redshift-serverless.amazonaws.com:5439/${task.redshiftConfig?.database || "dev"}",
-            dbtable=rs_table, user="admin", password="TempPass123!",
+            url="jdbc:redshift://${task.redshiftConfig?.workgroupName || "bgp-workgroup"}.${account_id}.us-east-1.redshift-serverless.amazonaws.com:5439/${task.redshiftConfig?.database || "dev"}",
+            dbtable=rs_table, user=db_user, password=db_pass,
             driver="com.amazon.redshift.jdbc42.Driver",
         ).mode("${writeMode === "overwrite" ? "overwrite" : "append"}").save()
         print(f"Written to Redshift: {rs_table}")

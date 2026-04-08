@@ -81,11 +81,13 @@ export class PlatformStack extends cdk.Stack {
     cfnSg.addPropertyOverride("SecurityGroupIngress", []);
 
     // Add CloudFront managed prefix list as ingress source
-    // com.amazonaws.global.cloudfront.origin-facing is the AWS-managed prefix list for CloudFront
-    const cfPrefixList = ec2.Peer.prefixList(
-      ec2.PrefixList.fromPrefixListId(this, "CfPrefixList", "pl-3b927c52").prefixListId
+    // com.amazonaws.global.cloudfront.origin-facing prefix list ID varies by region
+    const cfPrefixListId = ec2.Peer.prefixList(
+      ec2.PrefixList.fromLookup(this, "CfPrefixList", {
+        name: "com.amazonaws.global.cloudfront.origin-facing",
+      }).prefixListId
     );
-    albSg.addIngressRule(cfPrefixList, ec2.Port.tcp(80), "Allow CloudFront only");
+    albSg.addIngressRule(cfPrefixListId, ec2.Port.tcp(80), "Allow CloudFront only");
 
     // CloudFront distribution → public ALB (restricted by SG)
     const distribution = new cloudfront.Distribution(this, "BgpCdn", {
