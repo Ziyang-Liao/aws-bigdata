@@ -55,6 +55,7 @@ export class PlatformStack extends cdk.Stack {
         taskRole,
         environment: {
           AWS_REGION: cdk.Stack.of(this).region,
+          AWS_ACCOUNT_ID: cdk.Stack.of(this).account,
           NEXT_PUBLIC_COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
           NEXT_PUBLIC_COGNITO_CLIENT_ID: props.cognitoClientId,
           COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
