@@ -29,6 +29,9 @@ export default function DagEditor({ nodes: initNodes, edges: initEdges, onChange
   const [edges, setEdges, onEdgesChange] = useEdgesState(initEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
+  // Sync when parent adds nodes
+  React.useEffect(() => { setNodes(initNodes); }, [initNodes.length]);
+
   const nodeTypes = useMemo(() => ({ sync: SyncNode, sql: SqlNode, python: PythonNode }), []);
 
   const onConnect = useCallback(
