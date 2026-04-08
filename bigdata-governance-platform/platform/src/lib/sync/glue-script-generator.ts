@@ -125,7 +125,7 @@ ${partitionFields.length > 0 ? `        print(f"Partitioned by: ${partitionField
     print(f"Writing to Redshift: {rs_table}")
     try:
         df.write.format("jdbc").options(
-            url="jdbc:redshift://${task.redshiftConfig?.workgroupName || "bgp-workgroup"}.${account_id}.us-east-1.redshift-serverless.amazonaws.com:5439/${task.redshiftConfig?.database || "dev"}",
+            url=f"jdbc:redshift://${task.redshiftConfig?.workgroupName || "bgp-workgroup"}.{account_id}.us-east-1.redshift-serverless.amazonaws.com:5439/${task.redshiftConfig?.database || "dev"}",
             dbtable=rs_table, user=db_user, password=db_pass,
             driver="com.amazon.redshift.jdbc42.Driver",
         ).mode("${writeMode === "overwrite" ? "overwrite" : "append"}").save()
