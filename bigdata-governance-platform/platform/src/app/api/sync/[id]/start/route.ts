@@ -1,8 +1,9 @@
 export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import { GetCommand, UpdateCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
-import { GlueClient, CreateJobCommand, StartJobRunCommand } from "@aws-sdk/client-glue";
+import { GlueClient, CreateJobCommand, StartJobRunCommand, GetCatalogCommand, CreateCatalogCommand } from "@aws-sdk/client-glue";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3TablesClient, CreateTableBucketCommand, CreateNamespaceCommand, ListTableBucketsCommand, ListNamespacesCommand } from "@aws-sdk/client-s3tables";
 import { docClient, TABLES } from "@/lib/aws/dynamodb";
 import { generateGlueScript } from "@/lib/sync/glue-script-generator";
 import { apiOk, apiError } from "@/lib/api-response";
@@ -10,8 +11,54 @@ import { ulid } from "ulid";
 import type { DataSource } from "@/types/datasource";
 
 const USER_ID = "default-user";
-const glue = new GlueClient({ region: process.env.AWS_REGION || "us-east-1" });
-const s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
+const region = process.env.AWS_REGION || "us-east-1";
+const glue = new GlueClient({ region });
+const s3 = new S3Client({ region });
+const s3tables = new S3TablesClient({ region });
+
+async function ensureS3TableBucketAndNamespace(bucketName: string, namespace: string): Promise<string> {
+  // Find or create table bucket
+  let bucketArn = "";
+  const { tableBuckets = [] } = await s3tables.send(new ListTableBucketsCommand({}));
+  const existing = tableBuckets.find((b) => b.name === bucketName);
+  if (existing) {
+    bucketArn = existing.arn!;
+  } else {
+    const res = await s3tables.send(new CreateTableBucketCommand({ name: bucketName }));
+    bucketArn = res.arn!;
+  }
+
+  // Ensure s3tablescatalog federated catalog exists in Glue Data Catalog
+  const accountId = bucketArn.split(":")[4];
+  try {
+    await glue.send(new GetCatalogCommand({ CatalogId: "s3tablescatalog" }));
+  } catch {
+    await glue.send(new CreateCatalogCommand({
+      Name: "s3tablescatalog",
+      CatalogInput: {
+        Description: "Federated catalog for S3 Tables",
+        FederatedCatalog: {
+          Identifier: `arn:aws:s3tables:${region}:${accountId}:bucket/*`,
+          ConnectionName: "aws:s3tables",
+        },
+        CreateDatabaseDefaultPermissions: [{ Principal: { DataLakePrincipalIdentifier: "IAM_ALLOWED_PRINCIPALS" }, Permissions: ["ALL"] }],
+        CreateTableDefaultPermissions: [{ Principal: { DataLakePrincipalIdentifier: "IAM_ALLOWED_PRINCIPALS" }, Permissions: ["ALL"] }],
+      },
+    })).catch(() => {});
+  }
+
+  // Ensure namespace exists
+  try {
+    const { namespaces = [] } = await s3tables.send(new ListNamespacesCommand({ tableBucketARN: bucketArn }));
+    if (!namespaces.some((n) => n.namespace?.includes(namespace))) {
+      await s3tables.send(new CreateNamespaceCommand({ tableBucketARN: bucketArn, namespace: [namespace] }));
+    }
+  } catch (e: any) {
+    if (!e.message?.includes("already exists")) throw e;
+  }
+
+  return bucketArn;
+}
 
 export async function POST(_: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -31,9 +78,19 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
     const channel = task.channel || "glue";
     if (channel !== "glue") return apiError(`通道 ${channel} 暂未实现`);
 
+    // Auto-create S3 Table Bucket & Namespace if target is S3 Tables
+    const writeS3 = task.targetType === "s3-tables" || task.targetType === "both";
+    const tableBucketName = task.s3Config?.tableBucket || "bgp-table-bucket";
+    const namespace = task.s3Config?.namespace || ds.database || "default";
+    if (writeS3) {
+      await ensureS3TableBucketAndNamespace(tableBucketName, namespace);
+      // Patch task config so glue script uses correct namespace
+      task.s3Config = { ...task.s3Config, tableBucket: tableBucketName, namespace };
+    }
+
     // Generate script
     const script = generateGlueScript(task, ds as DataSource);
-    const bucket = process.env.GLUE_SCRIPTS_BUCKET || "bgp-glue-scripts-470377450205";
+    const bucket = process.env.GLUE_SCRIPTS_BUCKET || `bgp-glue-scripts-${process.env.AWS_ACCOUNT_ID || "689738461915"}`;
     const scriptKey = `glue-scripts/${task.taskId}.py`;
     await s3.send(new PutObjectCommand({ Bucket: bucket, Key: scriptKey, Body: script }));
 
@@ -51,9 +108,9 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
           "--conf": [
             "spark.sql.catalog.s3tablescatalog=org.apache.iceberg.spark.SparkCatalog",
             "spark.sql.catalog.s3tablescatalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog",
-            "spark.sql.catalog.s3tablescatalog.glue.id=470377450205:s3tablescatalog/bgp-table-bucket",
+            `spark.sql.catalog.s3tablescatalog.glue.id=${process.env.AWS_ACCOUNT_ID || "689738461915"}:s3tablescatalog/bgp-table-bucket`,
             "spark.sql.catalog.s3tablescatalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO",
-            "spark.sql.catalog.s3tablescatalog.warehouse=arn:aws:s3tables:us-east-1:470377450205:bucket/bgp-table-bucket",
+            `spark.sql.catalog.s3tablescatalog.warehouse=arn:aws:s3tables:us-east-1:${process.env.AWS_ACCOUNT_ID || "689738461915"}:bucket/bgp-table-bucket`,
           ].join(" --conf "),
         },
         Connections: connName ? { Connections: [connName] } : undefined,
@@ -159,7 +216,7 @@ async function pollGlueJob(taskId: string, runId: string, jobName: string, jobRu
 
           if (allLogs.length > 0) {
             const { PutObjectCommand } = await import("@aws-sdk/client-s3");
-            const bucket = process.env.GLUE_SCRIPTS_BUCKET || "bgp-glue-scripts-470377450205";
+            const bucket = process.env.GLUE_SCRIPTS_BUCKET || `bgp-glue-scripts-${process.env.AWS_ACCOUNT_ID || "689738461915"}`;
             logS3Key = `logs/${taskId}/${runId}.log`;
             await s3.send(new PutObjectCommand({
               Bucket: bucket, Key: logS3Key,

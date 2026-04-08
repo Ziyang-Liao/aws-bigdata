@@ -18,7 +18,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string; ru
     // Try S3 first
     if (run.logS3Key) {
       try {
-        const bucket = process.env.GLUE_SCRIPTS_BUCKET || "bgp-glue-scripts-470377450205";
+        const bucket = process.env.GLUE_SCRIPTS_BUCKET || `bgp-glue-scripts-${process.env.AWS_ACCOUNT_ID || "689738461915"}`;
         const { Body } = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: run.logS3Key }));
         const text = await Body?.transformToString();
         if (text) {

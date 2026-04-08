@@ -3,10 +3,14 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecsPatterns from "aws-cdk-lib/aws-ecs-patterns";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import { Construct } from "constructs";
 
 interface PlatformStackProps extends cdk.StackProps {
   vpc: ec2.Vpc;
+  cognitoUserPoolId: string;
+  cognitoClientId: string;
 }
 
 export class PlatformStack extends cdk.Stack {
@@ -33,7 +37,12 @@ export class PlatformStack extends cdk.Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName("IAMFullAccess"),
       ],
     });
+    taskRole.addToPolicy(new iam.PolicyStatement({
+      actions: ["s3tables:*", "lakeformation:*"],
+      resources: ["*"],
+    }));
 
+    // Public ALB but security group restricted to CloudFront only
     const service = new ecsPatterns.ApplicationLoadBalancedFargateService(this, "BgpService", {
       cluster,
       serviceName: "bgp-platform",
@@ -45,14 +54,14 @@ export class PlatformStack extends cdk.Stack {
         containerPort: 3000,
         taskRole,
         environment: {
-          AWS_REGION: "us-east-1",
-          NEXT_PUBLIC_COGNITO_USER_POOL_ID: "us-east-1_JnGwRjVco",
-          NEXT_PUBLIC_COGNITO_CLIENT_ID: "59m27ovhvfkjcsgfi8d29g0ju0",
-          COGNITO_USER_POOL_ID: "us-east-1_JnGwRjVco",
+          AWS_REGION: cdk.Stack.of(this).region,
+          NEXT_PUBLIC_COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
+          NEXT_PUBLIC_COGNITO_CLIENT_ID: props.cognitoClientId,
+          COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
           REDSHIFT_WORKGROUP: "bgp-workgroup",
-          GLUE_SCRIPTS_BUCKET: "bgp-glue-scripts-470377450205",
-          GLUE_ROLE_ARN: "arn:aws:iam::470377450205:role/bgp-glue-role",
-          MWAA_DAG_BUCKET: "bgp-mwaa-dags-470377450205",
+          GLUE_SCRIPTS_BUCKET: `bgp-glue-scripts-${cdk.Stack.of(this).account}`,
+          GLUE_ROLE_ARN: `arn:aws:iam::${cdk.Stack.of(this).account}:role/bgp-glue-role`,
+          MWAA_DAG_BUCKET: `bgp-mwaa-dags-${cdk.Stack.of(this).account}`,
           DEFAULT_VPC_ID: props.vpc.vpcId,
           DEFAULT_SUBNET_ID: props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }).subnetIds[0],
           DEFAULT_AZ: props.vpc.availabilityZones[0],
@@ -64,8 +73,38 @@ export class PlatformStack extends cdk.Stack {
 
     service.targetGroup.configureHealthCheck({ path: "/", healthyHttpCodes: "200-399" });
 
+    // Lock down ALB SG: remove default 0.0.0.0/0, allow only CloudFront prefix list
+    const albSg = service.loadBalancer.connections.securityGroups[0];
+    const cfnSg = albSg.node.defaultChild as ec2.CfnSecurityGroup;
+
+    // Remove the default wide-open ingress by clearing SecurityGroupIngress
+    cfnSg.addPropertyOverride("SecurityGroupIngress", []);
+
+    // Add CloudFront managed prefix list as ingress source
+    // com.amazonaws.global.cloudfront.origin-facing is the AWS-managed prefix list for CloudFront
+    const cfPrefixList = ec2.Peer.prefixList(
+      ec2.PrefixList.fromPrefixListId(this, "CfPrefixList", "pl-3b927c52").prefixListId
+    );
+    albSg.addIngressRule(cfPrefixList, ec2.Port.tcp(80), "Allow CloudFront only");
+
+    // CloudFront distribution → public ALB (restricted by SG)
+    const distribution = new cloudfront.Distribution(this, "BgpCdn", {
+      defaultBehavior: {
+        origin: new origins.HttpOrigin(service.loadBalancer.loadBalancerDnsName, {
+          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+      },
+    });
+
     new cdk.CfnOutput(this, "PlatformUrl", {
-      value: `http://${service.loadBalancer.loadBalancerDnsName}`,
+      value: `https://${distribution.distributionDomainName}`,
+    });
+    new cdk.CfnOutput(this, "DistributionId", {
+      value: distribution.distributionId,
     });
   }
 }

@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
           ScheduleExpressionTimezone: "UTC",
           FlexibleTimeWindow: { Mode: "OFF" },
           Target: {
-            Arn: `arn:aws:lambda:${process.env.AWS_REGION || "us-east-1"}:${process.env.AWS_ACCOUNT_ID || "470377450205"}:function:bgp-scheduler-trigger`,
+            Arn: `arn:aws:lambda:${process.env.AWS_REGION || "us-east-1"}:${process.env.AWS_ACCOUNT_ID || "689738461915"}:function:bgp-scheduler-trigger`,
             RoleArn: roleArn,
             Input: JSON.stringify({ taskId, taskType: taskType || "sync", action: "start" }),
           },
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
             ScheduleExpressionTimezone: "UTC",
             FlexibleTimeWindow: { Mode: "OFF" },
             Target: {
-              Arn: `arn:aws:lambda:${process.env.AWS_REGION || "us-east-1"}:${process.env.AWS_ACCOUNT_ID || "470377450205"}:function:bgp-scheduler-trigger`,
+              Arn: `arn:aws:lambda:${process.env.AWS_REGION || "us-east-1"}:${process.env.AWS_ACCOUNT_ID || "689738461915"}:function:bgp-scheduler-trigger`,
               RoleArn: roleArn,
               Input: JSON.stringify({ taskId, taskType: taskType || "sync", action: "start" }),
             },

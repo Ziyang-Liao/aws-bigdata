@@ -17,7 +17,7 @@ export function generateGlueScript(task: any, ds: DataSource): string {
 
   // S3 Tables config
   const tableBucketName = task.s3Config?.tableBucket || "bgp-table-bucket";
-  const namespace = task.s3Config?.namespace || task.s3Config?.prefix?.replace(/\//g, "") || "ecommerce";
+  const namespace = task.s3Config?.namespace || ds.database || "default";
   const icebergConfig = task.s3Config?.icebergConfig || {};
   const snapshotRetention = icebergConfig.snapshotRetentionDays || 7;
   const maxSnapshots = icebergConfig.maxSnapshots || 100;
@@ -114,10 +114,7 @@ ${partitionFields.length > 0 ? `        print(f"Partitioned by: ${partitionField
     except Exception as e:
         error_msg = str(e)
         print(f"S3 Tables write error: {error_msg[:300]}")
-        # Fallback: plain S3 Parquet
-        s3_path = f"s3://bgp-datalake-470377450205/${task.s3Config?.prefix || "ecommerce/"}{table_name}/"
-        df.write.mode("overwrite").parquet(s3_path)
-        print(f"Fallback to S3 Parquet: {s3_path}")
+        raise e
 ` : ""}${writeRedshift ? `
     # Write to Redshift
     rs_schema = "${task.redshiftConfig?.schema || "public"}"
@@ -125,7 +122,7 @@ ${partitionFields.length > 0 ? `        print(f"Partitioned by: ${partitionField
     print(f"Writing to Redshift: {rs_table}")
     try:
         df.write.format("jdbc").options(
-            url="jdbc:redshift://${task.redshiftConfig?.workgroupName || "bgp-workgroup"}.470377450205.us-east-1.redshift-serverless.amazonaws.com:5439/${task.redshiftConfig?.database || "dev"}",
+            url="jdbc:redshift://${task.redshiftConfig?.workgroupName || "bgp-workgroup"}.689738461915.us-east-1.redshift-serverless.amazonaws.com:5439/${task.redshiftConfig?.database || "dev"}",
             dbtable=rs_table, user="admin", password="TempPass123!",
             driver="com.amazon.redshift.jdbc42.Driver",
         ).mode("${writeMode === "overwrite" ? "overwrite" : "append"}").save()

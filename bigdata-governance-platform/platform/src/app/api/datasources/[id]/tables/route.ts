@@ -1,20 +1,11 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { GetCommand } from "@aws-sdk/lib-dynamodb";
-import { GlueClient, GetTablesCommand, GetConnectionCommand } from "@aws-sdk/client-glue";
 import { docClient, TABLES } from "@/lib/aws/dynamodb";
+import { getSecret } from "@/lib/aws/datasource-service";
+import mysql from "mysql2/promise";
 
 const USER_ID = "default-user";
-const glue = new GlueClient({ region: process.env.AWS_REGION || "us-east-1" });
-
-// MySQL type mapping for metadata display
-const MYSQL_TYPES: Record<string, string> = {
-  int: "int", integer: "int", bigint: "bigint", smallint: "smallint", tinyint: "tinyint",
-  float: "float", double: "double", decimal: "decimal(10,2)", numeric: "decimal(10,2)",
-  varchar: "varchar(255)", char: "char(1)", text: "text", longtext: "longtext",
-  date: "date", datetime: "datetime", timestamp: "timestamp",
-  boolean: "boolean", json: "json", blob: "blob",
-};
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const { Item: ds } = await docClient.send(
@@ -23,59 +14,50 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (!ds) return NextResponse.json([]);
 
   const database = req.nextUrl.searchParams.get("database") || ds.database;
-  let tables: any[] = [];
 
-  // Try Glue Data Catalog
+  // Get credentials from Secrets Manager
+  let username = ds.username || "admin";
+  let password = "";
+  if (ds.secretArn) {
+    try {
+      const secret = await getSecret(ds.secretArn);
+      username = secret.username;
+      password = secret.password;
+    } catch {}
+  }
+
+  // Query source database INFORMATION_SCHEMA directly
   try {
-    const { TableList = [] } = await glue.send(new GetTablesCommand({ DatabaseName: database }));
-    tables = TableList.map((t) => ({
-      name: t.Name, database,
-      columns: t.StorageDescriptor?.Columns?.map((c) => ({ name: c.Name, type: c.Type, comment: c.Comment })) || [],
-      partitionKeys: t.PartitionKeys?.map((p) => ({ name: p.Name, type: p.Type })) || [],
-    }));
-  } catch {}
+    const conn = await mysql.createConnection({
+      host: ds.host, port: ds.port || 3306, user: username, password, database,
+      connectTimeout: 10000,
+    });
 
-  // If Glue Catalog returned results, use them
-  if (tables.length > 0) return NextResponse.json(tables);
+    const [rows] = await conn.query(
+      `SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_COMMENT
+       FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, ORDINAL_POSITION`,
+      [database]
+    );
 
-  // Otherwise: query source database via Glue Connection to get real table list
-  // For now, use a reliable approach: call the source DB metadata via Glue Job or hardcode known tables
-  // Since we know the source is MySQL ecommerce, query INFORMATION_SCHEMA
-  try {
-    if (ds.glueConnectionName) {
-      // Try to get table info from Glue Connection metadata
-      const { Connection } = await glue.send(new GetConnectionCommand({ Name: ds.glueConnectionName }));
-      const jdbcUrl = Connection?.ConnectionProperties?.JDBC_CONNECTION_URL || "";
-      // Extract database name from JDBC URL
-      const dbFromUrl = jdbcUrl.split("/").pop()?.split("?")[0] || database;
+    await conn.end();
 
-      // We can't directly query MySQL from API Route (no JDBC driver)
-      // Return known tables based on what we've synced before
+    // Group by table
+    const tableMap: Record<string, any> = {};
+    for (const row of rows as any[]) {
+      if (!tableMap[row.TABLE_NAME]) {
+        tableMap[row.TABLE_NAME] = { name: row.TABLE_NAME, database, columns: [] };
+      }
+      tableMap[row.TABLE_NAME].columns.push({
+        name: row.COLUMN_NAME,
+        type: row.COLUMN_TYPE,
+        nullable: row.IS_NULLABLE === "YES",
+        key: row.COLUMN_KEY || undefined,
+        comment: row.COLUMN_COMMENT || undefined,
+      });
     }
-  } catch {}
 
-  // Fallback: return known tables for this database
-  // This covers the case where Glue Catalog doesn't have the source tables cataloged
-  const knownTables: Record<string, any[]> = {
-    ecommerce: [
-      { name: "users", database, columns: [
-        { name: "user_id", type: "int" }, { name: "username", type: "varchar(50)" },
-        { name: "email", type: "varchar(100)" }, { name: "user_level", type: "varchar(20)" },
-        { name: "created_at", type: "datetime" },
-      ]},
-      { name: "orders", database, columns: [
-        { name: "order_id", type: "int" }, { name: "customer_id", type: "int" },
-        { name: "product_name", type: "varchar(100)" }, { name: "amount", type: "decimal(10,2)" },
-        { name: "order_status", type: "varchar(20)" }, { name: "order_date", type: "date" },
-        { name: "created_at", type: "datetime" },
-      ]},
-      { name: "products", database, columns: [
-        { name: "product_id", type: "int" }, { name: "product_name", type: "varchar(100)" },
-        { name: "category", type: "varchar(50)" }, { name: "price", type: "decimal(10,2)" },
-        { name: "stock", type: "int" },
-      ]},
-    ],
-  };
-
-  return NextResponse.json(knownTables[database] || knownTables.ecommerce);
+    return NextResponse.json(Object.values(tableMap));
+  } catch (e: any) {
+    return NextResponse.json({ error: `无法连接源数据库: ${e.message}` }, { status: 500 });
+  }
 }

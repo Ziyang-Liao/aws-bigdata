@@ -5,6 +5,7 @@ import { VpcStack } from "../lib/vpc-stack";
 import { DatabaseStack } from "../lib/database-stack";
 import { AuthStack } from "../lib/auth-stack";
 import { RedshiftStack } from "../lib/redshift-stack";
+import { RdsStack } from "../lib/rds-stack";
 import { PlatformStack } from "../lib/platform-stack";
 
 const app = new cdk.App();
@@ -12,6 +13,12 @@ const env = { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_
 
 const vpc = new VpcStack(app, "BgpVpcStack", { env });
 new DatabaseStack(app, "BgpDatabaseStack", { env });
-new AuthStack(app, "BgpAuthStack", { env });
+const auth = new AuthStack(app, "BgpAuthStack", { env });
 new RedshiftStack(app, "BgpRedshiftStack", { env, vpc: vpc.vpc });
-new PlatformStack(app, "BgpPlatformStack", { env, vpc: vpc.vpc });
+new RdsStack(app, "BgpRdsStack", { env, vpc: vpc.vpc });
+new PlatformStack(app, "BgpPlatformStack", {
+  env,
+  vpc: vpc.vpc,
+  cognitoUserPoolId: auth.userPool.userPoolId,
+  cognitoClientId: auth.client.userPoolClientId,
+});
