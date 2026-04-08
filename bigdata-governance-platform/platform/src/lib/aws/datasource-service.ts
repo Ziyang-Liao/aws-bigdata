@@ -164,7 +164,10 @@ export async function ensureGlueRole(): Promise<string> {
       PolicyName: "bgp-secrets-read",
       PolicyDocument: JSON.stringify({
         Version: "2012-10-17",
-        Statement: [{ Effect: "Allow", Action: "secretsmanager:GetSecretValue", Resource: "arn:aws:secretsmanager:*:*:secret:bgp/*" }],
+        Statement: [
+          { Effect: "Allow", Action: "secretsmanager:GetSecretValue", Resource: "arn:aws:secretsmanager:*:*:secret:bgp/*" },
+          { Effect: "Allow", Action: ["s3tables:*", "lakeformation:*", "glue:*"], Resource: "*" },
+        ],
       }),
     }));
 
