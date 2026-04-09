@@ -47,7 +47,7 @@ export class PlatformStack extends cdk.Stack {
       ],
     });
     taskRole.addToPolicy(new iam.PolicyStatement({
-      actions: ["s3tables:*", "lakeformation:*", "cognito-idp:*", "airflow:CreateCliToken", "airflow:CreateWebLoginToken"],
+      actions: ["s3tables:*", "lakeformation:*", "cognito-idp:*", "airflow:*"],
       resources: ["*"],
     }));
 
@@ -94,9 +94,7 @@ export class PlatformStack extends cdk.Stack {
     // Add CloudFront managed prefix list as ingress source
     // com.amazonaws.global.cloudfront.origin-facing prefix list ID varies by region
     const cfPrefixListId = ec2.Peer.prefixList(
-      ec2.PrefixList.fromLookup(this, "CfPrefixList", {
-        name: "com.amazonaws.global.cloudfront.origin-facing",
-      }).prefixListId
+      ec2.PrefixList.fromLookup(this, "CfPrefixList", { name: "com.amazonaws.global.cloudfront.origin-facing" }).prefixListId
     );
     albSg.addIngressRule(cfPrefixListId, ec2.Port.tcp(80), "Allow CloudFront only");
 
