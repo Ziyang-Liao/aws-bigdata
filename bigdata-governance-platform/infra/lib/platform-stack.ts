@@ -3,6 +3,7 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecsPatterns from "aws-cdk-lib/aws-ecs-patterns";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import { Construct } from "constructs";
@@ -21,6 +22,12 @@ export class PlatformStack extends cdk.Stack {
       vpc: props.vpc,
       clusterName: "bgp-cluster",
     });
+
+    // S3 buckets
+    const accountId = cdk.Stack.of(this).account;
+    for (const name of [`bgp-datalake-${accountId}`, `bgp-glue-scripts-${accountId}`, `bgp-mwaa-dags-${accountId}`]) {
+      new s3.Bucket(this, name, { bucketName: name, removalPolicy: cdk.RemovalPolicy.DESTROY, autoDeleteObjects: true });
+    }
 
     const taskRole = new iam.Role(this, "TaskRole", {
       assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
