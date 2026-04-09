@@ -96,7 +96,7 @@ export default function MonitorPage() {
       <Modal title={`日志 - ${logModal.id?.slice(-8)}`} open={logModal.open} onCancel={() => setLogModal({ open: false, id: "", logs: [] })} footer={null} width={800}>
         <div style={{ maxHeight: 400, overflow: "auto", background: "#1e1e1e", color: "#d4d4d4", padding: 16, borderRadius: 8, fontFamily: "monospace", fontSize: 12 }}>
           {logModal.logs.length > 0 ? logModal.logs.map((log, i) => (
-            <div key={i}><span style={{ color: "#6a9955" }}>{new Date(log.timestamp).toISOString()}</span> {log.message}</div>
+            <div key={i}>{log.timestamp ? <span style={{ color: "#6a9955" }}>{new Date(log.timestamp).toISOString().slice(0,19)} </span> : null}{log.message}</div>
           )) : <span style={{ color: "#808080" }}>暂无日志</span>}
         </div>
       </Modal>
