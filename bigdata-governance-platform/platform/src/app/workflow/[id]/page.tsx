@@ -22,7 +22,17 @@ export default function WorkflowEditorPage() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [workflow, setWorkflow] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [runs, setRuns] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("editor");
+
+  useEffect(() => {
+    if (activeTab === "runs") {
+      fetch(`/api/sync/${id}/runs`)
+        .then(r => r.json())
+        .then(res => { const d = res.data || res; setRuns(d.runs || d.Items || []); })
+        .catch(() => {});
+    }
+  }, [id, activeTab]);
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
 
@@ -105,9 +115,9 @@ export default function WorkflowEditorPage() {
         { key: "editor", label: "DAG 编辑器", children: (
           <DagEditor nodes={nodes} edges={edges} onChange={(n, e) => { setNodes(n); setEdges(e); }} />
         )},
-        { key: "runs", label: "运行历史", children: (
+        { key: "runs", label: `运行历史 (${runs.length})`, children: (
           <div>
-            <Table size="small" dataSource={[]} rowKey="runId" locale={{ emptyText: "暂无运行记录。点击\"触发运行\"开始。" }}
+            <Table size="small" dataSource={runs} rowKey="runId" locale={{ emptyText: "暂无运行记录。点击\"触发运行\"开始。" }}
               columns={[
                 { title: "运行ID", dataIndex: "runId", width: 120 },
                 { title: "状态", dataIndex: "status", render: (v: string) => <Badge status={v === "success" ? "success" : v === "failed" ? "error" : "processing"} text={v} /> },

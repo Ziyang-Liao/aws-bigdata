@@ -6,6 +6,7 @@ import { DatabaseStack } from "../lib/database-stack";
 import { AuthStack } from "../lib/auth-stack";
 import { RedshiftStack } from "../lib/redshift-stack";
 import { RdsStack } from "../lib/rds-stack";
+import { MwaaStack } from "../lib/mwaa-stack";
 import { PlatformStack } from "../lib/platform-stack";
 
 const app = new cdk.App();
@@ -16,9 +17,14 @@ new DatabaseStack(app, "BgpDatabaseStack", { env });
 const auth = new AuthStack(app, "BgpAuthStack", { env });
 new RedshiftStack(app, "BgpRedshiftStack", { env, vpc: vpc.vpc });
 new RdsStack(app, "BgpRdsStack", { env, vpc: vpc.vpc });
-new PlatformStack(app, "BgpPlatformStack", {
+const platform = new PlatformStack(app, "BgpPlatformStack", {
   env,
   vpc: vpc.vpc,
   cognitoUserPoolId: auth.userPool.userPoolId,
   cognitoClientId: auth.client.userPoolClientId,
+});
+new MwaaStack(app, "BgpMwaaStack", {
+  env,
+  vpc: vpc.vpc,
+  dagBucketArn: platform.dagBucket.bucketArn,
 });

@@ -17,6 +17,7 @@
     "@aws-sdk/client-ec2": "^3.1019.0",
     "@aws-sdk/client-glue": "^3.1019.0",
     "@aws-sdk/client-iam": "^3.1019.0",
+    "@aws-sdk/client-mwaa": "^3.1027.0",
     "@aws-sdk/client-rds": "^3.1019.0",
     "@aws-sdk/client-redshift-data": "^3.1019.0",
     "@aws-sdk/client-redshift-serverless": "^3.1019.0",

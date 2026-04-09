@@ -15,6 +15,8 @@ interface PlatformStackProps extends cdk.StackProps {
 }
 
 export class PlatformStack extends cdk.Stack {
+  public readonly dagBucket: s3.Bucket;
+
   constructor(scope: Construct, id: string, props: PlatformStackProps) {
     super(scope, id, props);
 
@@ -25,9 +27,9 @@ export class PlatformStack extends cdk.Stack {
 
     // S3 buckets
     const accountId = cdk.Stack.of(this).account;
-    for (const name of [`bgp-datalake-${accountId}`, `bgp-glue-scripts-${accountId}`, `bgp-mwaa-dags-${accountId}`]) {
-      new s3.Bucket(this, name, { bucketName: name, removalPolicy: cdk.RemovalPolicy.DESTROY, autoDeleteObjects: true });
-    }
+    new s3.Bucket(this, "DatalakeBucket", { bucketName: `bgp-datalake-${accountId}`, removalPolicy: cdk.RemovalPolicy.DESTROY, autoDeleteObjects: true });
+    new s3.Bucket(this, "GlueScriptsBucket", { bucketName: `bgp-glue-scripts-${accountId}`, removalPolicy: cdk.RemovalPolicy.DESTROY, autoDeleteObjects: true });
+    this.dagBucket = new s3.Bucket(this, "MwaaDagBucket", { bucketName: `bgp-mwaa-dags-${accountId}`, removalPolicy: cdk.RemovalPolicy.DESTROY, autoDeleteObjects: true, versioned: true });
 
     const taskRole = new iam.Role(this, "TaskRole", {
       assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
@@ -45,7 +47,7 @@ export class PlatformStack extends cdk.Stack {
       ],
     });
     taskRole.addToPolicy(new iam.PolicyStatement({
-      actions: ["s3tables:*", "lakeformation:*", "cognito-idp:*"],
+      actions: ["s3tables:*", "lakeformation:*", "cognito-idp:*", "airflow:CreateCliToken", "airflow:CreateWebLoginToken"],
       resources: ["*"],
     }));
 
@@ -70,6 +72,7 @@ export class PlatformStack extends cdk.Stack {
           GLUE_SCRIPTS_BUCKET: `bgp-glue-scripts-${cdk.Stack.of(this).account}`,
           GLUE_ROLE_ARN: `arn:aws:iam::${cdk.Stack.of(this).account}:role/bgp-glue-role`,
           MWAA_DAG_BUCKET: `bgp-mwaa-dags-${cdk.Stack.of(this).account}`,
+          MWAA_ENV_NAME: "bgp-mwaa",
           DEFAULT_VPC_ID: props.vpc.vpcId,
           DEFAULT_SUBNET_ID: props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }).subnetIds[0],
           DEFAULT_AZ: props.vpc.availabilityZones[0],
