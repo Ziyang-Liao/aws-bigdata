@@ -82,7 +82,7 @@ def run_custom_script(script, **kwargs):
 
 with DAG(
     dag_id="${dagId}",
-    schedule_interval="${schedule === "None" ? "None" : schedule}",
+    schedule_interval=${schedule === "None" ? "None" : `"${schedule}"`},
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["bgp"],
