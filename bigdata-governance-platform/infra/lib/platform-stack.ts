@@ -16,6 +16,7 @@ interface PlatformStackProps extends cdk.StackProps {
 
 export class PlatformStack extends cdk.Stack {
   public readonly dagBucket: s3.Bucket;
+  public readonly albSecurityGroup: ec2.ISecurityGroup;
 
   constructor(scope: Construct, id: string, props: PlatformStackProps) {
     super(scope, id, props);
@@ -72,6 +73,7 @@ export class PlatformStack extends cdk.Stack {
 
     // Export ALB DNS for DAG generator
     const albDns = service.loadBalancer.loadBalancerDnsName;
+    this.albSecurityGroup = service.loadBalancer.connections.securityGroups[0];
 
     // Add ALB DNS to container environment (self-reference via update)
     const cfnTaskDef = service.taskDefinition.node.defaultChild as cdk.aws_ecs.CfnTaskDefinition;

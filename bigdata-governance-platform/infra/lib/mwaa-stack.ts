@@ -7,6 +7,7 @@ import { Construct } from "constructs";
 interface MwaaStackProps extends cdk.StackProps {
   vpc: ec2.Vpc;
   dagBucketArn: string;
+  albSecurityGroup: ec2.ISecurityGroup;
 }
 
 export class MwaaStack extends cdk.Stack {
@@ -22,6 +23,9 @@ export class MwaaStack extends cdk.Stack {
       description: "MWAA Security Group",
     });
     sg.addIngressRule(sg, ec2.Port.allTraffic(), "MWAA self-reference");
+
+    // Allow MWAA to access platform ALB
+    props.albSecurityGroup.addIngressRule(sg, ec2.Port.tcp(80), "MWAA to ALB");
 
     const role = new iam.Role(this, "MwaaRole", {
       assumedBy: new iam.CompositePrincipal(

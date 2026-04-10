@@ -27,4 +27,5 @@ new MwaaStack(app, "BgpMwaaStack", {
   env,
   vpc: vpc.vpc,
   dagBucketArn: platform.dagBucket.bucketArn,
+  albSecurityGroup: platform.albSecurityGroup,
 });
