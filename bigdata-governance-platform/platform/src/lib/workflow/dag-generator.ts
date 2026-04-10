@@ -66,8 +66,9 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 import requests
+import os
 
-API_BASE = "http://platform-service:3000/api"
+API_BASE = os.environ.get("BGP_API_BASE", "http://${process.env.PLATFORM_ALB_DNS || "localhost:3000"}/api")
 
 def trigger_sync_task(task_id, **kwargs):
     resp = requests.post(f"{API_BASE}/sync/{task_id}/start")

@@ -62,27 +62,37 @@ export class PlatformStack extends cdk.Stack {
         image: ecs.ContainerImage.fromAsset("../platform"),
         containerPort: 3000,
         taskRole,
-        environment: {
-          AWS_REGION: cdk.Stack.of(this).region,
-          AWS_ACCOUNT_ID: cdk.Stack.of(this).account,
-          NEXT_PUBLIC_COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
-          NEXT_PUBLIC_COGNITO_CLIENT_ID: props.cognitoClientId,
-          COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
-          REDSHIFT_WORKGROUP: "bgp-workgroup",
-          GLUE_SCRIPTS_BUCKET: `bgp-glue-scripts-${cdk.Stack.of(this).account}`,
-          GLUE_ROLE_ARN: `arn:aws:iam::${cdk.Stack.of(this).account}:role/bgp-glue-role`,
-          MWAA_DAG_BUCKET: `bgp-mwaa-dags-${cdk.Stack.of(this).account}`,
-          MWAA_ENV_NAME: "bgp-mwaa",
-          DEFAULT_VPC_ID: props.vpc.vpcId,
-          DEFAULT_SUBNET_ID: props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }).subnetIds[0],
-          DEFAULT_AZ: props.vpc.availabilityZones[0],
-        },
+        environment: {},
       },
       publicLoadBalancer: true,
       assignPublicIp: false,
     });
 
     service.targetGroup.configureHealthCheck({ path: "/", healthyHttpCodes: "200-399" });
+
+    // Export ALB DNS for DAG generator
+    const albDns = service.loadBalancer.loadBalancerDnsName;
+
+    // Add ALB DNS to container environment (self-reference via update)
+    const cfnTaskDef = service.taskDefinition.node.defaultChild as cdk.aws_ecs.CfnTaskDefinition;
+    cfnTaskDef.addPropertyOverride("ContainerDefinitions.0.Environment", [
+      ...Object.entries({
+        AWS_REGION: cdk.Stack.of(this).region,
+        AWS_ACCOUNT_ID: cdk.Stack.of(this).account,
+        NEXT_PUBLIC_COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
+        NEXT_PUBLIC_COGNITO_CLIENT_ID: props.cognitoClientId,
+        COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
+        REDSHIFT_WORKGROUP: "bgp-workgroup",
+        GLUE_SCRIPTS_BUCKET: `bgp-glue-scripts-${cdk.Stack.of(this).account}`,
+        GLUE_ROLE_ARN: `arn:aws:iam::${cdk.Stack.of(this).account}:role/bgp-glue-role`,
+        MWAA_DAG_BUCKET: `bgp-mwaa-dags-${cdk.Stack.of(this).account}`,
+        MWAA_ENV_NAME: "bgp-mwaa",
+        PLATFORM_ALB_DNS: albDns,
+        DEFAULT_VPC_ID: props.vpc.vpcId,
+        DEFAULT_SUBNET_ID: props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }).subnetIds[0],
+        DEFAULT_AZ: props.vpc.availabilityZones[0],
+      }).map(([name, value]) => ({ Name: name, Value: value })),
+    ]);
 
     // Lock down ALB SG: remove default 0.0.0.0/0, allow only CloudFront prefix list
     const albSg = service.loadBalancer.connections.securityGroups[0];
