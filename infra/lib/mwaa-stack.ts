@@ -72,7 +72,7 @@ export class MwaaStack extends cdk.Stack {
       resources: ["*"],
     }));
     role.addToPolicy(new iam.PolicyStatement({
-      actions: ["dynamodb:GetItem", "dynamodb:Query"],
+      actions: ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:UpdateItem"],
       resources: [`arn:aws:dynamodb:${this.region}:${this.account}:table/bgp-*`],
     }));
     role.addToPolicy(new iam.PolicyStatement({
