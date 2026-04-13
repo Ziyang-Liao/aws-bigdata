@@ -5,3 +5,5 @@ dist/
 .env
 .env.local
 cdk.out/
+cdk.context.json
+e2e/screenshots/

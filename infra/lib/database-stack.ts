@@ -11,6 +11,9 @@ export class DatabaseStack extends cdk.Stack {
       { name: "bgp-sync-tasks", pk: "userId", sk: "taskId" },
       { name: "bgp-workflows", pk: "userId", sk: "workflowId" },
       { name: "bgp-redshift-tasks", pk: "userId", sk: "taskId" },
+      { name: "bgp-task-runs", pk: "taskId", sk: "runId" },
+      { name: "bgp-sql-history", pk: "userId", sk: "historyId" },
+      { name: "bgp-lineage", pk: "targetFqn", sk: "sourceFqn" },
     ];
 
     for (const t of tables) {
