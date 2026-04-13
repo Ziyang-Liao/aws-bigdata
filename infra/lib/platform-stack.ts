@@ -133,6 +133,7 @@ export class PlatformStack extends cdk.Stack {
       ec2.PrefixList.fromPrefixListId(this, "CfPrefixList", "pl-3b927c52").prefixListId
     );
     albSg.addIngressRule(cfPrefixListId, ec2.Port.tcp(80), "Allow CloudFront only");
+    albSg.addIngressRule(ec2.Peer.ipv4(props.vpc.vpcCidrBlock), ec2.Port.tcp(80), "Allow VPC internal (MWAA/ECS)");
 
     // CloudFront distribution → public ALB (restricted by SG)
     const distribution = new cloudfront.Distribution(this, "BgpCdn", {
