@@ -22,23 +22,35 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
 
   try {
     // Use MWAA CLI token to trigger DAG via Airflow REST API
-    const { CliToken, WebServerHostname } = await mwaa.send(
+    // Ensure DAG is loaded and unpaused before triggering
+    let dagReady = false;
+    for (let i = 0; i < 12 && !dagReady; i++) {
+      const { CliToken: ct, WebServerHostname: wh } = await mwaa.send(new CreateCliTokenCommand({ Name: envName }));
+      const listRes = await fetch(`https://${wh}/aws_mwaa/cli`, {
+        method: "POST", headers: { Authorization: `Bearer ${ct}`, "Content-Type": "text/plain" },
+        body: `dags list -o json`,
+      });
+      const listBody = await listRes.json();
+      const stdout = Buffer.from(listBody.stdout || "", "base64").toString();
+      if (stdout.includes(dagId)) {
+        // DAG loaded, unpause it
+        const { CliToken: ut, WebServerHostname: uh } = await mwaa.send(new CreateCliTokenCommand({ Name: envName }));
+        await fetch(`https://${uh}/aws_mwaa/cli`, {
+          method: "POST", headers: { Authorization: `Bearer ${ut}`, "Content-Type": "text/plain" },
+          body: `dags unpause ${dagId}`,
+        });
+        dagReady = true;
+      } else {
+        await new Promise((r) => setTimeout(r, 10000));
+      }
+    }
+
+    const { CliToken: triggerToken, WebServerHostname: triggerHost } = await mwaa.send(
       new CreateCliTokenCommand({ Name: envName })
     );
-
-    // Ensure DAG is unpaused before triggering
-    await fetch(`https://${WebServerHostname}/aws_mwaa/cli`, {
+    const res = await fetch(`https://${triggerHost}/aws_mwaa/cli`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${CliToken}`, "Content-Type": "text/plain" },
-      body: `dags unpause ${dagId}`,
-    });
-
-    const { CliToken: t2, WebServerHostname: h2 } = await mwaa.send(
-      new CreateCliTokenCommand({ Name: envName })
-    );
-    const res = await fetch(`https://${h2}/aws_mwaa/cli`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${t2}`, "Content-Type": "text/plain" },
+      headers: { Authorization: `Bearer ${triggerToken}`, "Content-Type": "text/plain" },
       body: `dags trigger ${dagId} -r ${runId}`,
     });
     const result = await res.text();
