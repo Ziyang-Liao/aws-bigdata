@@ -82,17 +82,37 @@ WORKFLOW_ID = "${workflow.workflowId}"
 
 def _update_workflow_status(status):
     dynamodb = boto3.resource("dynamodb", region_name=region)
+    now = datetime.utcnow().isoformat() + "Z"
     dynamodb.Table("bgp-workflows").update_item(
         Key={"userId": "default-user", "workflowId": WORKFLOW_ID},
         UpdateExpression="SET lastRunStatus = :s, updatedAt = :t",
-        ExpressionAttributeValues={":s": status, ":t": datetime.utcnow().isoformat() + "Z"},
+        ExpressionAttributeValues={":s": status, ":t": now},
     )
+
+def _update_run_record(run_id, status):
+    dynamodb = boto3.resource("dynamodb", region_name=region)
+    now = datetime.utcnow().isoformat() + "Z"
+    try:
+        dynamodb.Table("bgp-task-runs").update_item(
+            Key={"taskId": WORKFLOW_ID, "runId": run_id},
+            UpdateExpression="SET #s = :s, finishedAt = :t",
+            ExpressionAttributeNames={"#s": "status"},
+            ExpressionAttributeValues={":s": status, ":t": now},
+        )
+    except Exception as e:
+        print(f"Failed to update run record: {e}")
 
 def on_success(**kwargs):
     _update_workflow_status("succeeded")
+    run_id = kwargs.get("dag_run", {}).run_id if kwargs.get("dag_run") else None
+    if run_id:
+        _update_run_record(run_id, "succeeded")
 
 def on_failure(context):
     _update_workflow_status("failed")
+    run_id = context.get("dag_run", {}).run_id if context.get("dag_run") else None
+    if run_id:
+        _update_run_record(run_id, "failed")
 
 def trigger_sync_task(task_id, **kwargs):
     """Start a Glue sync job via AWS API (no HTTP dependency on platform)"""
