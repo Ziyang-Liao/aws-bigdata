@@ -66,6 +66,19 @@ export class MwaaStack extends cdk.Stack {
       resources: ["*"],
       conditions: { StringLike: { "kms:ViaService": [`sqs.${this.region}.amazonaws.com`] } },
     }));
+    // DAG tasks need Glue, DynamoDB, Redshift Data API access
+    role.addToPolicy(new iam.PolicyStatement({
+      actions: ["glue:StartJobRun", "glue:GetJobRun", "glue:GetJob"],
+      resources: ["*"],
+    }));
+    role.addToPolicy(new iam.PolicyStatement({
+      actions: ["dynamodb:GetItem", "dynamodb:Query"],
+      resources: [`arn:aws:dynamodb:${this.region}:${this.account}:table/bgp-*`],
+    }));
+    role.addToPolicy(new iam.PolicyStatement({
+      actions: ["redshift-data:ExecuteStatement", "redshift-data:DescribeStatement", "redshift-data:GetStatementResult", "redshift-serverless:GetCredentials"],
+      resources: ["*"],
+    }));
 
     const env = new mwaa.CfnEnvironment(this, "BgpMwaa", {
       name: this.environmentName,

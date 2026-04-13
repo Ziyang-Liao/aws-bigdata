@@ -65,18 +65,46 @@ export function generateAirflowDag(workflow: Workflow): string {
 from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-import requests
-import os
+import boto3
+import json
+import time
 
-API_BASE = os.environ.get("BGP_API_BASE", "http://${process.env.PLATFORM_ALB_DNS || "localhost:3000"}/api")
+region = "${process.env.AWS_REGION || "us-east-1"}"
+glue = boto3.client("glue", region_name=region)
+redshift = boto3.client("redshift-data", region_name=region)
 
 def trigger_sync_task(task_id, **kwargs):
-    resp = requests.post(f"{API_BASE}/sync/{task_id}/start")
-    resp.raise_for_status()
+    """Start a Glue sync job via AWS API (no HTTP dependency on platform)"""
+    dynamodb = boto3.resource("dynamodb", region_name=region)
+    task = dynamodb.Table("bgp-sync-tasks").get_item(Key={"userId": "default-user", "taskId": task_id}).get("Item")
+    if not task:
+        raise Exception(f"Sync task {task_id} not found")
+    job_name = task.get("glueJobName")
+    if not job_name:
+        raise Exception(f"Sync task {task_id} has no Glue job. Run it from the platform first.")
+    run = glue.start_job_run(JobName=job_name)
+    run_id = run["JobRunId"]
+    print(f"Started Glue job {job_name}, run {run_id}")
+    # Poll until complete
+    while True:
+        status = glue.get_job_run(JobName=job_name, RunId=run_id)["JobRun"]["JobRunState"]
+        if status in ("SUCCEEDED", "FAILED", "STOPPED", "ERROR", "TIMEOUT"):
+            break
+        time.sleep(15)
+    if status != "SUCCEEDED":
+        raise Exception(f"Glue job {job_name} run {run_id} ended with {status}")
+    print(f"Glue job {job_name} completed: {status}")
 
 def execute_redshift_sql(sql, **kwargs):
-    resp = requests.post(f"{API_BASE}/redshift/execute", json={"sql": sql})
-    resp.raise_for_status()
+    resp = redshift.execute_statement(WorkgroupName="bgp-workgroup", Database="dev", Sql=sql)
+    stmt_id = resp["Id"]
+    while True:
+        desc = redshift.describe_statement(Id=stmt_id)
+        if desc["Status"] in ("FINISHED", "FAILED", "ABORTED"):
+            break
+        time.sleep(2)
+    if desc["Status"] != "FINISHED":
+        raise Exception(f"Redshift SQL failed: {desc.get('Error','')}")
 
 def run_custom_script(script, **kwargs):
     exec(script)
