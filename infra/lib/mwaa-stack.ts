@@ -94,6 +94,11 @@ export class MwaaStack extends cdk.Stack {
         securityGroupIds: [sg.securityGroupId],
       },
       webserverAccessMode: "PUBLIC_ONLY",
+      airflowConfigurationOptions: {
+        "scheduler.dag_dir_list_interval": "30",
+        "core.min_file_process_interval": "30",
+        "core.dags_are_paused_at_creation": "False",
+      },
       loggingConfiguration: {
         dagProcessingLogs: { enabled: true, logLevel: "INFO" },
         schedulerLogs: { enabled: true, logLevel: "INFO" },
