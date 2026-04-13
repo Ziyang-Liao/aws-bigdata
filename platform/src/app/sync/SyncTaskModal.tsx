@@ -263,7 +263,7 @@ export default function SyncTaskModal({ open, editing, onClose, onSuccess }: Pro
               <Divider>Redshift 配置</Divider>
               <Space size={16}>
                 <Form.Item name={["redshiftConfig", "workgroupName"]} label="Workgroup" initialValue="bgp-workgroup">
-                  <Select style={{ width: 200 }} options={rsWorkgroups.length > 0 ? rsWorkgroups.map((w) => ({ label: w.workgroupName, value: w.workgroupName })) : [{ label: "bgp-workgroup", value: "bgp-workgroup" }]} />
+                  <Select style={{ width: 200 }} onChange={(v) => { fetch(`/api/redshift/databases?workgroup=${v}`).then((r) => r.json()).then((d) => setRsDatabases(Array.isArray(d) ? d.map((x: any) => x.name || x) : ["dev"])); }} options={rsWorkgroups.length > 0 ? rsWorkgroups.map((w) => ({ label: w.workgroupName, value: w.workgroupName })) : [{ label: "bgp-workgroup", value: "bgp-workgroup" }]} />
                 </Form.Item>
                 <Form.Item name={["redshiftConfig", "database"]} label="Database" initialValue="dev"><Select style={{ width: 150 }} options={rsDatabases.map((d) => ({ label: d, value: d }))} /></Form.Item>
                 <Form.Item name={["redshiftConfig", "schema"]} label="Schema" initialValue="public"><Input style={{ width: 120 }} /></Form.Item>

@@ -32,6 +32,30 @@ export class PlatformStack extends cdk.Stack {
     new s3.Bucket(this, "GlueScriptsBucket", { bucketName: `bgp-glue-scripts-${accountId}`, removalPolicy: cdk.RemovalPolicy.DESTROY, autoDeleteObjects: true });
     this.dagBucket = new s3.Bucket(this, "MwaaDagBucket", { bucketName: `bgp-mwaa-dags-${accountId}`, removalPolicy: cdk.RemovalPolicy.DESTROY, autoDeleteObjects: true, versioned: true });
 
+    // Glue Job execution role
+    const glueRole = new iam.Role(this, "GlueRole", {
+      roleName: "bgp-glue-role",
+      assumedBy: new iam.ServicePrincipal("glue.amazonaws.com"),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSGlueServiceRole"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite"),
+      ],
+    });
+    glueRole.addToPolicy(new iam.PolicyStatement({
+      actions: [
+        "redshift-serverless:GetCredentials",
+        "redshift-data:ExecuteStatement",
+        "redshift-data:DescribeStatement",
+        "redshift-data:GetStatementResult",
+      ],
+      resources: ["*"],
+    }));
+    glueRole.addToPolicy(new iam.PolicyStatement({
+      actions: ["s3tables:*", "lakeformation:*", "glue:*", "logs:*"],
+      resources: ["*"],
+    }));
+
     const taskRole = new iam.Role(this, "TaskRole", {
       assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
       managedPolicies: [
@@ -86,7 +110,7 @@ export class PlatformStack extends cdk.Stack {
         COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
         REDSHIFT_WORKGROUP: "bgp-workgroup",
         GLUE_SCRIPTS_BUCKET: `bgp-glue-scripts-${cdk.Stack.of(this).account}`,
-        GLUE_ROLE_ARN: `arn:aws:iam::${cdk.Stack.of(this).account}:role/bgp-glue-role`,
+        GLUE_ROLE_ARN: glueRole.roleArn,
         MWAA_DAG_BUCKET: `bgp-mwaa-dags-${cdk.Stack.of(this).account}`,
         MWAA_ENV_NAME: "bgp-mwaa",
         PLATFORM_ALB_DNS: albDns,

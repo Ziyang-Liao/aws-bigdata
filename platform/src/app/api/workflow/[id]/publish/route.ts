@@ -37,6 +37,17 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
       ExpressionAttributeValues: { ":s": "active", ":d": dagId, ":now": new Date().toISOString() },
     }));
 
+    // Auto-unpause DAG in MWAA
+    try {
+      const { MWAAClient, CreateCliTokenCommand } = await import("@aws-sdk/client-mwaa");
+      const mwaa = new MWAAClient({ region: process.env.AWS_REGION || "us-east-1" });
+      const { CliToken, WebServerHostname } = await mwaa.send(new CreateCliTokenCommand({ Name: process.env.MWAA_ENV_NAME || "bgp-mwaa" }));
+      await fetch(`https://${WebServerHostname}/aws_mwaa/cli`, {
+        method: "POST", headers: { Authorization: `Bearer ${CliToken}`, "Content-Type": "text/plain" },
+        body: `dags unpause ${dagId}`,
+      });
+    } catch {}
+
     return NextResponse.json({ success: true, dagId, bucket });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

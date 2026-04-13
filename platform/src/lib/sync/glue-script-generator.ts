@@ -119,19 +119,95 @@ ${partitionFields.length > 0 ? `        print(f"Partitioned by: ${partitionField
         print(f"S3 Tables write error: {error_msg[:300]}")
         raise e
 ` : ""}${writeRedshift ? `
-    # Write to Redshift
+    # Write to Redshift via Data API (IAM auth, no password needed)
+    import time
+    rs_client = boto3.client("redshift-data", region_name="${process.env.AWS_REGION || "us-east-1"}")
+    rs_workgroup = "${task.redshiftConfig?.workgroupName || "bgp-workgroup"}"
+    rs_database = "${task.redshiftConfig?.database || "dev"}"
     rs_schema = "${task.redshiftConfig?.schema || "public"}"
     rs_table = f"{rs_schema}.{table_name}"
-    print(f"Writing to Redshift: {rs_table}")
+    print(f"Writing to Redshift: {rs_table} via Data API")
+
     try:
-        df.write.format("jdbc").options(
-            url=f"jdbc:redshift://${task.redshiftConfig?.workgroupName || "bgp-workgroup"}.{account_id}.us-east-1.redshift-serverless.amazonaws.com:5439/${task.redshiftConfig?.database || "dev"}",
-            dbtable=rs_table, user=db_user, password=db_pass,
-            driver="com.amazon.redshift.jdbc42.Driver",
-        ).mode("${writeMode === "overwrite" ? "overwrite" : "append"}").save()
-        print(f"Written to Redshift: {rs_table}")
+        cols = df.columns
+        col_types = []
+        for f in df.schema.fields:
+            t = str(f.dataType)
+            if "Integer" in t or "Int" in t: col_types.append("INTEGER")
+            elif "Long" in t or "Bigint" in t: col_types.append("BIGINT")
+            elif "Double" in t or "Float" in t: col_types.append("DOUBLE PRECISION")
+            elif "Decimal" in t:
+                p = getattr(f.dataType, 'precision', 18)
+                s = getattr(f.dataType, 'scale', 2)
+                col_types.append(f"DECIMAL({p},{s})")
+            elif "Boolean" in t: col_types.append("BOOLEAN")
+            elif "Date" in t and "Timestamp" not in t: col_types.append("DATE")
+            elif "Timestamp" in t: col_types.append("TIMESTAMP")
+            else: col_types.append("VARCHAR(65535)")
+
+        col_defs = ", ".join(f"{c} {ct}" for c, ct in zip(cols, col_types))
+        # Drop and recreate to ensure current role is owner
+        drop_sql = f"DROP TABLE IF EXISTS {rs_table}"
+        resp = rs_client.execute_statement(WorkgroupName=rs_workgroup, Database=rs_database, Sql=drop_sql)
+        while True:
+            desc = rs_client.describe_statement(Id=resp["Id"])
+            if desc["Status"] in ("FINISHED", "FAILED", "ABORTED"): break
+            time.sleep(1)
+        create_sql = f"CREATE TABLE {rs_table} ({col_defs})"
+        print(f"DDL: {create_sql}")
+        resp = rs_client.execute_statement(WorkgroupName=rs_workgroup, Database=rs_database, Sql=create_sql)
+        stmt_id = resp["Id"]
+        while True:
+            desc = rs_client.describe_statement(Id=stmt_id)
+            if desc["Status"] in ("FINISHED", "FAILED", "ABORTED"): break
+            time.sleep(1)
+        if desc["Status"] != "FINISHED":
+            print(f"DDL failed: {desc.get('Error','')}")
+
+        # Grant access to all users so platform UI can query
+        grant_sql = f"GRANT ALL ON {rs_table} TO PUBLIC"
+        resp = rs_client.execute_statement(WorkgroupName=rs_workgroup, Database=rs_database, Sql=grant_sql)
+        while True:
+            desc = rs_client.describe_statement(Id=resp["Id"])
+            if desc["Status"] in ("FINISHED", "FAILED", "ABORTED"): break
+            time.sleep(1)
+
+${writeMode === "overwrite" ? `        # Truncate before insert
+        resp = rs_client.execute_statement(WorkgroupName=rs_workgroup, Database=rs_database, Sql=f"TRUNCATE TABLE {rs_table}")
+        while True:
+            desc = rs_client.describe_statement(Id=resp["Id"])
+            if desc["Status"] in ("FINISHED", "FAILED", "ABORTED"): break
+            time.sleep(1)
+        print(f"Truncated {rs_table}")` : ""}
+
+        # Batch insert via Data API
+        rows = df.collect()
+        batch_size = 100
+        inserted = 0
+        for i in range(0, len(rows), batch_size):
+            batch = rows[i:i+batch_size]
+            values_list = []
+            for row in batch:
+                vals = []
+                for v in row:
+                    if v is None: vals.append("NULL")
+                    elif isinstance(v, (int, float)): vals.append(str(v))
+                    else: vals.append("'" + str(v).replace("'", "''") + "'")
+                values_list.append("(" + ",".join(vals) + ")")
+            insert_sql = f"INSERT INTO {rs_table} ({','.join(cols)}) VALUES {','.join(values_list)}"
+            resp = rs_client.execute_statement(WorkgroupName=rs_workgroup, Database=rs_database, Sql=insert_sql)
+            while True:
+                desc = rs_client.describe_statement(Id=resp["Id"])
+                if desc["Status"] in ("FINISHED", "FAILED", "ABORTED"): break
+                time.sleep(1)
+            if desc["Status"] != "FINISHED":
+                print(f"Insert batch failed: {desc.get('Error','')}")
+            else:
+                inserted += len(batch)
+        print(f"Written {inserted} rows to Redshift: {rs_table}")
     except Exception as e:
-        print(f"Redshift write skipped: {e}")
+        print(f"Redshift write error: {e}")
+        raise e
 ` : ""}
     results[table_name] = {"rows": row_count, "columns": col_count}
     print(f"Table {table_name} sync completed: {row_count} rows")
