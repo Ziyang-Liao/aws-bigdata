@@ -8,9 +8,15 @@ import type { Workflow } from "@/types/workflow";
 
 const statusMap: Record<string, { color: string; text: string }> = {
   draft: { color: "default", text: "草稿" },
-  active: { color: "success", text: "运行中" },
+  active: { color: "processing", text: "已发布" },
   paused: { color: "warning", text: "已暂停" },
   error: { color: "error", text: "异常" },
+};
+
+const runStatusMap: Record<string, { color: string; text: string }> = {
+  running: { color: "processing", text: "运行中" },
+  succeeded: { color: "success", text: "成功" },
+  failed: { color: "error", text: "失败" },
 };
 
 export default function WorkflowPage() {
@@ -61,6 +67,10 @@ export default function WorkflowPage() {
     {
       title: "状态", dataIndex: "status", key: "status",
       render: (v: string) => <Tag color={statusMap[v]?.color}>{statusMap[v]?.text || v}</Tag>,
+    },
+    {
+      title: "最近运行", dataIndex: "lastRunStatus", key: "lastRunStatus",
+      render: (v: string) => v ? <Tag color={runStatusMap[v]?.color}>{runStatusMap[v]?.text || v}</Tag> : <Tag>未运行</Tag>,
     },
     { title: "调度", dataIndex: "cronExpression", key: "cron", render: (v: string) => v || "未配置" },
     { title: "更新时间", dataIndex: "updatedAt", key: "updatedAt", render: (v: string) => v?.slice(0, 19).replace("T", " ") },
