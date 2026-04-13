@@ -89,30 +89,48 @@ def _update_workflow_status(status):
         ExpressionAttributeValues={":s": status, ":t": now},
     )
 
-def _update_run_record(run_id, status):
+def _update_run_record(run_id, status, context=None):
     dynamodb = boto3.resource("dynamodb", region_name=region)
     now = datetime.utcnow().isoformat() + "Z"
     try:
+        update_expr = "SET #s = :s, finishedAt = :t"
+        attr_names = {"#s": "status"}
+        attr_vals = {":s": status, ":t": now}
+        # Calculate duration from dag_run
+        dag_run = context.get("dag_run") if context else None
+        if dag_run and dag_run.start_date:
+            duration = int((datetime.utcnow() - dag_run.start_date.replace(tzinfo=None)).total_seconds())
+            update_expr += ", #d = :d"
+            attr_names["#d"] = "duration"
+            attr_vals[":d"] = duration
+        # Capture error from failed task
+        if status == "failed" and context:
+            ti = context.get("task_instance")
+            err = str(context.get("exception", "")) or (ti.log_url if ti else "")
+            if err:
+                update_expr += ", #e = :e"
+                attr_names["#e"] = "error"
+                attr_vals[":e"] = err[:500]
         dynamodb.Table("bgp-task-runs").update_item(
             Key={"taskId": WORKFLOW_ID, "runId": run_id},
-            UpdateExpression="SET #s = :s, finishedAt = :t",
-            ExpressionAttributeNames={"#s": "status"},
-            ExpressionAttributeValues={":s": status, ":t": now},
+            UpdateExpression=update_expr,
+            ExpressionAttributeNames=attr_names,
+            ExpressionAttributeValues=attr_vals,
         )
     except Exception as e:
         print(f"Failed to update run record: {e}")
 
 def on_success(**kwargs):
     _update_workflow_status("succeeded")
-    run_id = kwargs.get("dag_run", {}).run_id if kwargs.get("dag_run") else None
+    run_id = kwargs.get("dag_run").run_id if kwargs.get("dag_run") else None
     if run_id:
-        _update_run_record(run_id, "succeeded")
+        _update_run_record(run_id, "succeeded", kwargs)
 
 def on_failure(context):
     _update_workflow_status("failed")
-    run_id = context.get("dag_run", {}).run_id if context.get("dag_run") else None
+    run_id = context.get("dag_run").run_id if context.get("dag_run") else None
     if run_id:
-        _update_run_record(run_id, "failed")
+        _update_run_record(run_id, "failed", context)
 
 def trigger_sync_task(task_id, **kwargs):
     """Start a Glue sync job via AWS API (no HTTP dependency on platform)"""
