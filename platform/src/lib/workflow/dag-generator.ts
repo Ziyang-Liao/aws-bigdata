@@ -88,7 +88,7 @@ def _update_workflow_status(status):
         ExpressionAttributeValues={":s": status, ":t": datetime.utcnow().isoformat() + "Z"},
     )
 
-def on_success(context):
+def on_success(**kwargs):
     _update_workflow_status("succeeded")
 
 def on_failure(context):
@@ -136,9 +136,16 @@ with DAG(
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["bgp"],
-    on_success_callback=on_success,
     on_failure_callback=on_failure,
 ) as dag:
 ${tasks}
-${depLines ? `    # Dependencies\n${depLines}` : ""}`;
+    _status_done = PythonOperator(
+        task_id="_status_done",
+        python_callable=on_success,
+        trigger_rule="all_success",
+    )
+
+${depLines ? `    # Dependencies\n${depLines}` : ""}
+    # All leaf tasks -> status callback
+${leafTaskIds.length > 0 ? `    [${leafTaskIds.join(", ")}] >> _status_done` : ""}`;
 }
