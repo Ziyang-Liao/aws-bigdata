@@ -26,9 +26,19 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
       new CreateCliTokenCommand({ Name: envName })
     );
 
-    const res = await fetch(`https://${WebServerHostname}/aws_mwaa/cli`, {
+    // Ensure DAG is unpaused before triggering
+    await fetch(`https://${WebServerHostname}/aws_mwaa/cli`, {
       method: "POST",
       headers: { Authorization: `Bearer ${CliToken}`, "Content-Type": "text/plain" },
+      body: `dags unpause ${dagId}`,
+    });
+
+    const { CliToken: t2, WebServerHostname: h2 } = await mwaa.send(
+      new CreateCliTokenCommand({ Name: envName })
+    );
+    const res = await fetch(`https://${h2}/aws_mwaa/cli`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${t2}`, "Content-Type": "text/plain" },
       body: `dags trigger ${dagId} -r ${runId}`,
     });
     const result = await res.text();

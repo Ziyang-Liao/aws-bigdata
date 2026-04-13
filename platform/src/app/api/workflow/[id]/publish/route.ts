@@ -37,15 +37,31 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
       ExpressionAttributeValues: { ":s": "active", ":d": dagId, ":now": new Date().toISOString() },
     }));
 
-    // Auto-unpause DAG in MWAA
+    // Auto-unpause DAG in MWAA (wait for scheduler to pick up the DAG file)
     try {
       const { MWAAClient, CreateCliTokenCommand } = await import("@aws-sdk/client-mwaa");
       const mwaa = new MWAAClient({ region: process.env.AWS_REGION || "us-east-1" });
-      const { CliToken, WebServerHostname } = await mwaa.send(new CreateCliTokenCommand({ Name: process.env.MWAA_ENV_NAME || "bgp-mwaa" }));
-      await fetch(`https://${WebServerHostname}/aws_mwaa/cli`, {
-        method: "POST", headers: { Authorization: `Bearer ${CliToken}`, "Content-Type": "text/plain" },
-        body: `dags unpause ${dagId}`,
-      });
+      const envName = process.env.MWAA_ENV_NAME || "bgp-mwaa";
+
+      for (let i = 0; i < 12; i++) {
+        await new Promise((r) => setTimeout(r, 10000));
+        const { CliToken, WebServerHostname } = await mwaa.send(new CreateCliTokenCommand({ Name: envName }));
+        const res = await fetch(`https://${WebServerHostname}/aws_mwaa/cli`, {
+          method: "POST", headers: { Authorization: `Bearer ${CliToken}`, "Content-Type": "text/plain" },
+          body: `dags list -o json`,
+        });
+        const body = await res.json();
+        const stdout = Buffer.from(body.stdout || "", "base64").toString();
+        if (stdout.includes(dagId)) {
+          // DAG loaded, now unpause
+          const { CliToken: t2, WebServerHostname: h2 } = await mwaa.send(new CreateCliTokenCommand({ Name: envName }));
+          await fetch(`https://${h2}/aws_mwaa/cli`, {
+            method: "POST", headers: { Authorization: `Bearer ${t2}`, "Content-Type": "text/plain" },
+            body: `dags unpause ${dagId}`,
+          });
+          break;
+        }
+      }
     } catch {}
 
     return NextResponse.json({ success: true, dagId, bucket });
