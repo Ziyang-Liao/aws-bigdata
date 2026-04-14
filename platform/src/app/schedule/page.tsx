@@ -49,9 +49,19 @@ export default function SchedulePage() {
   const saveCron = async () => {
     const item = cronModal.item;
     if (!item) return;
-    const url = item.itemType === "sync" ? `/api/sync/${item.itemId}` : `/api/workflow/${item.itemId}`;
-    await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cronExpression: cronModal.cron }) });
-    message.success("调度已更新");
+    // If schedule is already enabled, update cron via schedule/enable to regenerate DAG
+    if (item.scheduleEnabled) {
+      const res = await fetch("/api/schedule/enable", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId: item.itemId, taskType: item.itemType, cronExpression: cronModal.cron, enabled: true }),
+      });
+      const d = await res.json();
+      d.success !== false ? message.success("调度已更新") : message.error(d.error?.message || "更新失败");
+    } else {
+      const url = item.itemType === "sync" ? `/api/sync/${item.itemId}` : `/api/workflow/${item.itemId}`;
+      await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cronExpression: cronModal.cron }) });
+      message.success("Cron 已保存，启用调度后生效");
+    }
     setCronModal({ open: false, cron: "" });
     fetchData();
   };
