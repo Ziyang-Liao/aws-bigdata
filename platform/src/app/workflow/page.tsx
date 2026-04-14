@@ -111,7 +111,7 @@ export default function WorkflowPage() {
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
         <h2 style={{ margin: 0 }}>ETL 编排</h2>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={fetchData}>刷新</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => fetchData()}>刷新</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建工作流</Button>
         </Space>
       </div>
