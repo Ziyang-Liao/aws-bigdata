@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Table, Button, Space, Tag, Popconfirm, message, Modal, Input, Form } from "antd";
-import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
+import { Table, Button, Space, Tag, Popconfirm, message, Modal, Input, Form, Select, Card } from "antd";
+import { PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import type { Workflow } from "@/types/workflow";
 
@@ -25,6 +25,7 @@ export default function WorkflowPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [form] = Form.useForm();
   const router = useRouter();
+  const [filters, setFilters] = useState({ name: "", status: "", cron: "" });
 
   const fetchData = async () => {
     setLoading(true);
@@ -108,7 +109,23 @@ export default function WorkflowPage() {
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建工作流</Button>
         </Space>
       </div>
-      <Table columns={columns} dataSource={data} rowKey="workflowId" loading={loading} />
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Space wrap>
+          <Input placeholder="工作流名称" prefix={<SearchOutlined />} value={filters.name} onChange={(e) => setFilters({ ...filters, name: e.target.value })} allowClear style={{ width: 200 }} />
+          <Select placeholder="状态" value={filters.status || undefined} onChange={(v) => setFilters({ ...filters, status: v || "" })} allowClear style={{ width: 120 }}
+            options={[{ label: "草稿", value: "draft" }, { label: "已发布", value: "active" }, { label: "已暂停", value: "paused" }, { label: "异常", value: "error" }]} />
+          <Select placeholder="调度" value={filters.cron || undefined} onChange={(v) => setFilters({ ...filters, cron: v || "" })} allowClear style={{ width: 130 }}
+            options={[{ label: "已配置", value: "configured" }, { label: "未配置", value: "none" }]} />
+          <Button onClick={() => setFilters({ name: "", status: "", cron: "" })}>重置</Button>
+        </Space>
+      </Card>
+      <Table columns={columns} dataSource={data.filter((w) => {
+        if (filters.name && !w.name?.toLowerCase().includes(filters.name.toLowerCase())) return false;
+        if (filters.status && w.status !== filters.status) return false;
+        if (filters.cron === "configured" && !w.cronExpression) return false;
+        if (filters.cron === "none" && w.cronExpression) return false;
+        return true;
+      })} rowKey="workflowId" loading={loading} />
       <Modal title="新建工作流" open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)}>
         <Form form={form} layout="vertical">
           <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item>
