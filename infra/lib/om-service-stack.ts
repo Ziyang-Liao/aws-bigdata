@@ -64,7 +64,7 @@ export class OmServiceStack extends cdk.Stack {
       },
     });
 
-    const alb = new elbv2.ApplicationLoadBalancer(this, "OmAlb", { vpc, internetFacing: false, securityGroup: omSg });
+    const alb = new elbv2.ApplicationLoadBalancer(this, "OmAlb", { vpc, internetFacing: true, securityGroup: omSg });
     const listener = alb.addListener("OmListener", { port: 80 });
 
     const service = new ecs.FargateService(this, "OmService", {
