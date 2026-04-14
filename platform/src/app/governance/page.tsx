@@ -163,22 +163,73 @@ export default function GovernancePage() {
               )
             }
 
-            {lineageData?.edges?.some((e: any) => e.columnMappings?.length) && (
-              <Card title="列级血缘" size="small" style={{ marginTop: 16 }}>
-                <Table size="small" pagination={false}
-                  dataSource={lineageData.edges.flatMap((e: any) => (e.columnMappings || []).map((c: any, i: number) => ({
-                    key: `${e.source}-${i}`, sourceTable: e.source.split(".").pop(), targetTable: e.target.split(".").pop(), ...c,
-                  })))}
-                  columns={[
-                    { title: "源表", dataIndex: "sourceTable" },
-                    { title: "源字段", dataIndex: "source", render: (v: string) => <code>{v}</code> },
-                    { title: "→", width: 30, render: () => "→" },
-                    { title: "目标表", dataIndex: "targetTable" },
-                    { title: "目标字段", dataIndex: "target", render: (v: string) => <code>{v}</code> },
-                  ]}
-                />
-              </Card>
-            )}
+            {lineageData?.edges?.some((e: any) => e.columnMappings?.length) && (() => {
+              const colRows = lineageData.edges.flatMap((e: any) => (e.columnMappings || []).map((c: any, i: number) => ({
+                key: `${e.source}-${i}`, sourceTable: e.source.split(".").pop(), targetTable: e.target.split(".").pop(), ...c,
+              })));
+              // Build column-level ReactFlow graph
+              const colGroups: Record<string, { table: string; side: "source" | "target"; cols: string[] }> = {};
+              for (const r of colRows) {
+                const sk = `src:${r.sourceTable}`;
+                const tk = `tgt:${r.targetTable}`;
+                if (!colGroups[sk]) colGroups[sk] = { table: r.sourceTable, side: "source", cols: [] };
+                if (!colGroups[tk]) colGroups[tk] = { table: r.targetTable, side: "target", cols: [] };
+                if (!colGroups[sk].cols.includes(r.source)) colGroups[sk].cols.push(r.source);
+                if (!colGroups[tk].cols.includes(r.target)) colGroups[tk].cols.push(r.target);
+              }
+              const colNodes: any[] = [];
+              const colEdges: any[] = [];
+              const groups = Object.values(colGroups);
+              const srcGroups = groups.filter((g) => g.side === "source");
+              const tgtGroups = groups.filter((g) => g.side === "target");
+              let yOff = 0;
+              for (const g of srcGroups) {
+                colNodes.push({
+                  id: `src:${g.table}`, position: { x: 0, y: yOff }, type: "default",
+                  data: { label: (<div style={{ textAlign: "left", minWidth: 160 }}><div style={{ fontWeight: 700, borderBottom: "1px solid #eee", paddingBottom: 4, marginBottom: 4 }}>🐬 {g.table}</div>{g.cols.map((c) => <div key={c} style={{ fontSize: 11, padding: "1px 0" }}>{c}</div>)}</div>) },
+                  style: { border: "2px solid #1677ff", borderRadius: 8, padding: 8, background: "#f0f5ff" },
+                });
+                yOff += 60 + g.cols.length * 20;
+              }
+              yOff = 0;
+              for (const g of tgtGroups) {
+                colNodes.push({
+                  id: `tgt:${g.table}`, position: { x: 450, y: yOff }, type: "default",
+                  data: { label: (<div style={{ textAlign: "left", minWidth: 160 }}><div style={{ fontWeight: 700, borderBottom: "1px solid #eee", paddingBottom: 4, marginBottom: 4 }}>🏢 {g.table}</div>{g.cols.map((c) => <div key={c} style={{ fontSize: 11, padding: "1px 0" }}>{c}</div>)}</div>) },
+                  style: { border: "2px solid #8c4fff", borderRadius: 8, padding: 8, background: "#f9f0ff" },
+                });
+                yOff += 60 + g.cols.length * 20;
+              }
+              for (const r of colRows) {
+                colEdges.push({
+                  id: `col-${r.key}`, source: `src:${r.sourceTable}`, target: `tgt:${r.targetTable}`,
+                  animated: true, label: `${r.source} → ${r.target}`, labelStyle: { fontSize: 9, fill: "#888" },
+                  style: { stroke: "#1677ff" },
+                });
+              }
+              return (
+                <Card title="列级血缘" size="small" style={{ marginTop: 16 }}>
+                  <Tabs size="small" items={[
+                    { key: "graph", label: "图形视图", children: (
+                      <div style={{ height: Math.max(300, yOff + 60), border: "1px solid #f0f0f0", borderRadius: 8 }}>
+                        <ReactFlow nodes={colNodes} edges={colEdges} fitView />
+                      </div>
+                    )},
+                    { key: "table", label: "表格视图", children: (
+                      <Table size="small" pagination={false} dataSource={colRows}
+                        columns={[
+                          { title: "源表", dataIndex: "sourceTable" },
+                          { title: "源字段", dataIndex: "source", render: (v: string) => <code>{v}</code> },
+                          { title: "→", width: 30, render: () => "→" },
+                          { title: "目标表", dataIndex: "targetTable" },
+                          { title: "目标字段", dataIndex: "target", render: (v: string) => <code>{v}</code> },
+                        ]}
+                      />
+                    )},
+                  ]} />
+                </Card>
+              );
+            })()}
           </div>
         )},
         { key: "quality", label: "数据质量", children: <Card><Empty description="配置数据质量规则（开发中）" /></Card> },
