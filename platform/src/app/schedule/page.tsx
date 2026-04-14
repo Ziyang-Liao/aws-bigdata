@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { Table, Switch, Tag, message, Modal, Button, Space, Select, Badge } from "antd";
-import { ReloadOutlined, ClockCircleOutlined, HistoryOutlined } from "@ant-design/icons";
+import { Table, Switch, Tag, message, Modal, Button, Space, Select, Badge, Input, Card } from "antd";
+import { ReloadOutlined, ClockCircleOutlined, HistoryOutlined, SearchOutlined } from "@ant-design/icons";
 import CronEditor from "@/components/common/CronEditor";
 
 export default function SchedulePage() {
@@ -29,12 +29,28 @@ export default function SchedulePage() {
   };
   const [refreshInterval, setRefreshInterval] = useState(0);
   const timerRef = useRef<NodeJS.Timeout>(undefined);
+  const [filters, setFilters] = useState({ name: "", itemType: "", status: "", enabled: "", scheduleType: "" });
 
-  const fetchData = () => {
+  const buildQs = (f: typeof filters, type: string) => {
+    const params = new URLSearchParams();
+    if (f.name) params.set("name", f.name);
+    if (f.status) params.set("status", f.status);
+    if (f.enabled === "true") params.set("scheduleEnabled", "true");
+    else if (f.enabled === "false") params.set("scheduleEnabled", "false");
+    // scheduleType maps to cron param for workflow API
+    if (f.scheduleType === "auto") params.set("cron", "configured");
+    else if (f.scheduleType === "manual") params.set("cron", "none");
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
+  };
+
+  const fetchData = (f?: typeof filters) => {
+    const cur = f || filters;
+    const skip = cur.itemType;
     setLoading(true);
     Promise.all([
-      fetch("/api/sync").then((r) => r.json()).then((d) => d.success ? d.data : d),
-      fetch("/api/workflow").then((r) => r.json()).then((d) => d.success ? d.data : d),
+      skip === "workflow" ? Promise.resolve([]) : fetch(`/api/sync${buildQs(cur, "sync")}`).then((r) => r.json()).then((d) => d.success ? d.data : d),
+      skip === "sync" ? Promise.resolve([]) : fetch(`/api/workflow${buildQs(cur, "workflow")}`).then((r) => r.json()).then((d) => d.success ? d.data : d),
     ]).then(([s, w]) => { setSyncTasks(s); setWorkflows(w); }).finally(() => setLoading(false));
   };
 
@@ -42,9 +58,9 @@ export default function SchedulePage() {
 
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
-    if (refreshInterval > 0) timerRef.current = setInterval(fetchData, refreshInterval * 1000);
+    if (refreshInterval > 0) timerRef.current = setInterval(() => fetchData(), refreshInterval * 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [refreshInterval]);
+  }, [refreshInterval, filters]);
 
   const saveCron = async () => {
     const item = cronModal.item;
@@ -117,9 +133,24 @@ export default function SchedulePage() {
           <Select value={refreshInterval} onChange={setRefreshInterval} style={{ width: 130 }} options={[
             { label: "手动刷新", value: 0 }, { label: "5秒自动", value: 5 }, { label: "10秒自动", value: 10 }, { label: "30秒自动", value: 30 },
           ]} />
-          <Button icon={<ReloadOutlined />} onClick={fetchData}>刷新</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => fetchData()}>刷新</Button>
         </Space>
       </div>
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Space wrap>
+          <Input placeholder="名称" prefix={<SearchOutlined />} value={filters.name} onChange={(e) => setFilters({ ...filters, name: e.target.value })} onPressEnter={() => fetchData()} allowClear style={{ width: 180 }} />
+          <Select placeholder="类型" value={filters.itemType || undefined} onChange={(v) => { const f = { ...filters, itemType: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 120 }}
+            options={[{ label: "同步任务", value: "sync" }, { label: "工作流", value: "workflow" }]} />
+          <Select placeholder="状态" value={filters.status || undefined} onChange={(v) => { const f = { ...filters, status: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 120 }}
+            options={[{ label: "草稿", value: "draft" }, { label: "已发布", value: "active" }, { label: "已停止", value: "stopped" }, { label: "异常", value: "error" }]} />
+          <Select placeholder="启用" value={filters.enabled || undefined} onChange={(v) => { const f = { ...filters, enabled: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 110 }}
+            options={[{ label: "已启用", value: "true" }, { label: "未启用", value: "false" }]} />
+          <Select placeholder="调度类型" value={filters.scheduleType || undefined} onChange={(v) => { const f = { ...filters, scheduleType: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 120 }}
+            options={[{ label: "自动调度", value: "auto" }, { label: "手动触发", value: "manual" }]} />
+          <Button type="primary" icon={<SearchOutlined />} onClick={() => fetchData()}>搜索</Button>
+          <Button onClick={() => { const f = { name: "", itemType: "", status: "", enabled: "", scheduleType: "" }; setFilters(f); fetchData(f); }}>重置</Button>
+        </Space>
+      </Card>
       <Table columns={columns} dataSource={allItems} loading={loading} pagination={{ pageSize: 20 }}
         expandable={{
           expandedRowRender: (record: any) => {

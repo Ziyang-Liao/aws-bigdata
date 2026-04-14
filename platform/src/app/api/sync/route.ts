@@ -8,11 +8,28 @@ import { ulid } from "ulid";
 
 const USER_ID = "default-user";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const { Items = [] } = await docClient.send(
-      new ScanCommand({ TableName: TABLES.SYNC_TASKS, FilterExpression: "userId = :uid", ExpressionAttributeValues: { ":uid": USER_ID } })
-    );
+    const p = req.nextUrl.searchParams;
+    const name = p.get("name") || "";
+    const status = p.get("status") || "";
+    const scheduleEnabled = p.get("scheduleEnabled") || "";
+
+    const filterParts: string[] = ["userId = :uid"];
+    const attrNames: Record<string, string> = {};
+    const attrValues: Record<string, any> = { ":uid": USER_ID };
+
+    if (status) { filterParts.push("#st = :st"); attrNames["#st"] = "status"; attrValues[":st"] = status; }
+    if (name) { filterParts.push("contains(#nm, :nm)"); attrNames["#nm"] = "name"; attrValues[":nm"] = name; }
+    if (scheduleEnabled === "true") { filterParts.push("scheduleEnabled = :se"); attrValues[":se"] = true; }
+    else if (scheduleEnabled === "false") { filterParts.push("(attribute_not_exists(scheduleEnabled) OR scheduleEnabled = :se)"); attrValues[":se"] = false; }
+
+    const { Items = [] } = await docClient.send(new ScanCommand({
+      TableName: TABLES.SYNC_TASKS,
+      FilterExpression: filterParts.join(" AND "),
+      ...(Object.keys(attrNames).length > 0 ? { ExpressionAttributeNames: attrNames } : {}),
+      ExpressionAttributeValues: attrValues,
+    }));
     return apiOk(Items);
   } catch (e: any) {
     return apiError(e.message, 500);
