@@ -1,16 +1,17 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
-export async function GET() {
-  const url = process.env.OPENMETADATA_URL || "";
-  if (!url) return NextResponse.json({ error: "OPENMETADATA_URL 未配置，请先部署 OpenMetadata 服务" });
+const OM_INTERNAL_URL = process.env.OPENMETADATA_URL || "";
+const OM_PUBLIC_URL = process.env.OPENMETADATA_PUBLIC_URL || "";
 
-  // Health check
+export async function GET() {
+  if (!OM_INTERNAL_URL) return NextResponse.json({ error: "OPENMETADATA_URL 未配置" });
+
   try {
-    const res = await fetch(`${url}/api/v1/system/version`, { signal: AbortSignal.timeout(5000) });
+    const res = await fetch(`${OM_INTERNAL_URL}/api/v1/system/version`, { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
       const version = await res.json();
-      return NextResponse.json({ url, version: version.version });
+      return NextResponse.json({ url: OM_PUBLIC_URL || OM_INTERNAL_URL, version: version.version });
     }
     return NextResponse.json({ error: "OpenMetadata 服务未就绪" });
   } catch {

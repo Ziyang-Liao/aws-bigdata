@@ -114,6 +114,7 @@ export class PlatformStack extends cdk.Stack {
         MWAA_DAG_BUCKET: `bgp-mwaa-dags-${cdk.Stack.of(this).account}`,
         MWAA_ENV_NAME: "bgp-mwaa",
         OPENMETADATA_URL: `http://internal-BgpOmS-OmAlb-NouhWXI5oMEw-288542404.us-east-1.elb.amazonaws.com`,
+        OPENMETADATA_PUBLIC_URL: "https://d1wa3p15cvv06t.cloudfront.net",
         PLATFORM_ALB_DNS: albDns,
         DEFAULT_VPC_ID: props.vpc.vpcId,
         DEFAULT_SUBNET_ID: props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }).subnetIds[0],
