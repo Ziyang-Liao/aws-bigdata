@@ -11,12 +11,20 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(false);
   const [cronModal, setCronModal] = useState<{ open: boolean; item?: any; cron: string }>({ open: false, cron: "" });
   const [runRecords, setRunRecords] = useState<Record<string, any[]>>({});
+  const [logModal, setLogModal] = useState<{ open: boolean; id: string; logs: any[] }>({ open: false, id: "", logs: [] });
 
   const fetchRuns = async (id: string) => {
     const res = await fetch(`/api/sync/${id}/runs`);
     const d = await res.json();
     const runs = d.data?.runs || d.runs || d.Items || [];
     setRunRecords((prev) => ({ ...prev, [id]: runs }));
+  };
+
+  const viewLog = async (id: string) => {
+    setLogModal({ open: true, id, logs: [] });
+    const res = await fetch(`/api/monitor/tasks/${id}/logs`);
+    const data = await res.json();
+    setLogModal({ open: true, id, logs: data.logs || [] });
   };
   const [refreshInterval, setRefreshInterval] = useState(0);
   const timerRef = useRef<NodeJS.Timeout>(undefined);
@@ -79,8 +87,8 @@ export default function SchedulePage() {
     { title: "启用", key: "enabled", render: (_: any, r: any) => (
       <Switch size="small" checked={r.scheduleEnabled} onChange={(v) => toggleSchedule(r.itemId, r.itemType, v, r.cronExpression)} />
     )},
-    { title: "调度引擎", key: "engine", render: (_: any, r: any) => (
-      r.scheduleName ? <Tag color="green">EventBridge: {r.scheduleName}</Tag> : <Tag>未配置</Tag>
+    { title: "调度类型", key: "scheduleType", render: (_: any, r: any) => (
+      r.scheduleEnabled && r.cronExpression ? <Tag color="green">自动调度</Tag> : <Tag>手动触发</Tag>
     )},
     { title: "状态", dataIndex: "status", key: "status", render: (v: string) => <Badge status={v === "running" || v === "active" ? "processing" : v === "error" ? "error" : "default"} text={v === "active" ? "已发布" : v} /> },
     { title: "最近运行", key: "lastRun", render: (_: any, r: any) => {
@@ -110,11 +118,12 @@ export default function SchedulePage() {
                 columns={[
                   { title: "运行ID", dataIndex: "runId", width: 160, render: (v: string) => <code style={{fontSize:11}}>{v?.slice(0,16)}</code> },
                   { title: "状态", dataIndex: "status", width: 90, render: (v: string) => <Badge status={v === "succeeded" ? "success" : v === "failed" ? "error" : v === "running" ? "processing" : "default"} text={v === "succeeded" ? "成功" : v === "failed" ? "失败" : v === "running" ? "运行中" : v} /> },
-                  { title: "触发", dataIndex: "triggeredBy", width: 80, render: (v: string) => <Tag>{v || "manual"}</Tag> },
+                  { title: "触发方式", dataIndex: "triggeredBy", width: 90, render: (v: string) => v === "schedule" ? <Tag color="green">自动</Tag> : <Tag>手动</Tag> },
                   { title: "开始时间", dataIndex: "startedAt", width: 170, render: (v: string) => v?.slice(0,19).replace("T"," ") },
                   { title: "结束时间", dataIndex: "finishedAt", width: 170, render: (v: string) => v ? v.slice(0,19).replace("T"," ") : "-" },
                   { title: "耗时", dataIndex: "duration", width: 70, render: (v: number) => v ? `${v}s` : "-" },
                   { title: "错误", dataIndex: "error", ellipsis: true, render: (v: string) => v ? <span style={{color:"#ff4d4f"}}>{v}</span> : "-" },
+                  { title: "操作", width: 70, render: (_: any) => <Button size="small" type="link" onClick={() => viewLog(record.itemId)}>日志</Button> },
                 ]}
               />
             );
@@ -122,6 +131,14 @@ export default function SchedulePage() {
           onExpand: (expanded: boolean, record: any) => { if (expanded) fetchRuns(record.itemId); },
         }}
       />
+
+      <Modal title={`日志 - ${logModal.id?.slice(-8)}`} open={logModal.open} onCancel={() => setLogModal({ open: false, id: "", logs: [] })} footer={null} width={800}>
+        <div style={{ maxHeight: 400, overflow: "auto", background: "#1e1e1e", color: "#d4d4d4", padding: 16, borderRadius: 8, fontFamily: "monospace", fontSize: 12, whiteSpace: "pre-wrap" }}>
+          {logModal.logs.length > 0 ? logModal.logs.map((log: any, i: number) => (
+            <div key={i}>{log.timestamp ? <span style={{ color: "#6a9955" }}>{new Date(log.timestamp).toISOString().slice(0,19)} </span> : null}{typeof log === "string" ? log : log.message}</div>
+          )) : <span style={{ color: "#808080" }}>暂无日志</span>}
+        </div>
+      </Modal>
 
       <Modal title="配置调度" open={cronModal.open} onOk={saveCron} onCancel={() => setCronModal({ open: false, cron: "" })} width={520}>
         <div style={{ marginBottom: 8, fontWeight: 500 }}>{cronModal.item?.itemName}</div>
