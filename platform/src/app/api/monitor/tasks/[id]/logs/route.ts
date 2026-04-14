@@ -57,17 +57,26 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
     if (!dagId) return NextResponse.json({ logs: [{ message: "工作流尚未发布" }] });
 
     try {
-      const { CloudWatchLogsClient, FilterLogEventsCommand } = await import("@aws-sdk/client-cloudwatch-logs");
+      const { CloudWatchLogsClient, FilterLogEventsCommand, DescribeLogStreamsCommand } = await import("@aws-sdk/client-cloudwatch-logs");
       const cwl = new CloudWatchLogsClient({ region: process.env.AWS_REGION || "us-east-1" });
       const envName = process.env.MWAA_ENV_NAME || "bgp-mwaa";
       const allLogs: any[] = [];
+      const logGroup = `airflow-${envName}-Task`;
 
-      for (const logGroup of [`airflow-${envName}-Task`, `airflow-${envName}-Worker`]) {
+      // Find log streams matching this DAG
+      const { logStreams = [] } = await cwl.send(new DescribeLogStreamsCommand({
+        logGroupName: logGroup,
+        logStreamNamePrefix: `dag_id=${dagId}/`,
+        orderBy: "LastEventTime",
+        descending: true,
+        limit: 10,
+      }));
+
+      for (const stream of logStreams.slice(0, 5)) {
         try {
           const { events = [] } = await cwl.send(new FilterLogEventsCommand({
             logGroupName: logGroup,
-            filterPattern: dagId,
-            startTime: Date.now() - 3600000,
+            logStreamNames: [stream.logStreamName!],
             limit: 200,
           }));
           for (const e of events) {
