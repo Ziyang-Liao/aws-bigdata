@@ -100,7 +100,7 @@ export default function MonitorPage() {
         <Col span={4}><Card size="small"><Statistic title="今日成功" value={stats.todaySuccess || 0} prefix={<CheckCircleOutlined />} valueStyle={{ color: "#52c41a" }} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic title="今日失败" value={stats.todayFailed || 0} prefix={<CloseCircleOutlined />} valueStyle={{ color: "#ff4d4f" }} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic title="今日运行" value={stats.todayTotal || 0} prefix={<ClockCircleOutlined />} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="成功率" value={stats.successRate || 0} suffix="%" prefix={<PercentageOutlined />} valueStyle={{ color: (stats.successRate || 0) >= 90 ? "#52c41a" : "#faad14" }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="成功率" value={stats.successRate || 0} suffix="%" valueStyle={{ color: (stats.successRate || 0) >= 90 ? "#52c41a" : "#faad14" }} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic title="平均耗时" value={stats.avgDuration || 0} suffix="s" prefix={<FieldTimeOutlined />} /></Card></Col>
       </Row>
 
