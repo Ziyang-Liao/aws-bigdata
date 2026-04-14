@@ -3,6 +3,7 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecsPatterns from "aws-cdk-lib/aws-ecs-patterns";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
@@ -55,7 +56,7 @@ export class PlatformStack extends cdk.Stack {
       resources: ["*"],
     }));
     glueRole.addToPolicy(new iam.PolicyStatement({
-      actions: ["s3tables:*", "lakeformation:*", "glue:*", "logs:*"],
+      actions: ["s3tables:*", "lakeformation:*", "glue:*", "logs:*", "lambda:InvokeFunction"],
       resources: ["*"],
     }));
 
@@ -137,6 +138,20 @@ export class PlatformStack extends cdk.Stack {
     );
     albSg.addIngressRule(cfPrefixListId, ec2.Port.tcp(80), "Allow CloudFront only");
     albSg.addIngressRule(ec2.Peer.ipv4(props.vpc.vpcCidrBlock), ec2.Port.tcp(80), "Allow VPC internal");
+
+    // Scheduler trigger Lambda (invoked by EventBridge Scheduler)
+    const schedulerFn = new lambda.Function(this, "SchedulerTrigger", {
+      functionName: "bgp-scheduler-trigger",
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: "index.handler",
+      code: lambda.Code.fromAsset("lambda/scheduler-trigger"),
+      timeout: cdk.Duration.seconds(60),
+      environment: { MWAA_ENV_NAME: "bgp-mwaa" },
+    });
+    schedulerFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["airflow:*", "mwaa:*", "dynamodb:GetItem", "glue:StartJobRun"],
+      resources: ["*"],
+    }));
 
     // CloudFront distribution → public ALB (restricted by SG)
     const distribution = new cloudfront.Distribution(this, "BgpCdn", {
