@@ -14,6 +14,9 @@ export async function GET(req: NextRequest) {
     const name = p.get("name") || "";
     const status = p.get("status") || "";
     const scheduleEnabled = p.get("scheduleEnabled") || "";
+    const channel = p.get("channel") || "";
+    const syncMode = p.get("syncMode") || "";
+    const targetType = p.get("targetType") || "";
 
     const filterParts: string[] = ["userId = :uid"];
     const attrNames: Record<string, string> = {};
@@ -21,6 +24,9 @@ export async function GET(req: NextRequest) {
 
     if (status) { filterParts.push("#st = :st"); attrNames["#st"] = "status"; attrValues[":st"] = status; }
     if (name) { filterParts.push("contains(#nm, :nm)"); attrNames["#nm"] = "name"; attrValues[":nm"] = name; }
+    if (channel) { filterParts.push("channel = :ch"); attrValues[":ch"] = channel; }
+    if (syncMode) { filterParts.push("syncMode = :sm"); attrValues[":sm"] = syncMode; }
+    if (targetType) { filterParts.push("targetType = :tt"); attrValues[":tt"] = targetType; }
     if (scheduleEnabled === "true") { filterParts.push("scheduleEnabled = :se"); attrValues[":se"] = true; }
     else if (scheduleEnabled === "false") { filterParts.push("(attribute_not_exists(scheduleEnabled) OR scheduleEnabled = :se)"); attrValues[":se"] = false; }
 

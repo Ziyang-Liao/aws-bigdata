@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Table, Button, Space, Tag, Popconfirm, message } from "antd";
-import { PlusOutlined, ReloadOutlined, PlayCircleOutlined, PauseCircleOutlined } from "@ant-design/icons";
+import { Table, Button, Space, Tag, Popconfirm, message, Select, Input, Card } from "antd";
+import { PlusOutlined, ReloadOutlined, PlayCircleOutlined, PauseCircleOutlined, SearchOutlined } from "@ant-design/icons";
 import type { SyncTask } from "@/types/sync-task";
 import { useRouter } from "next/navigation";
 import SyncTaskModal from "./SyncTaskModal";
@@ -22,11 +22,20 @@ export default function SyncPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<SyncTask | undefined>();
   const router = useRouter();
+  const [filters, setFilters] = useState({ name: "", channel: "", syncMode: "", targetType: "", status: "" });
 
-  const fetchData = async () => {
+  const fetchData = async (f?: typeof filters) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/sync");
+      const cur = f || filters;
+      const params = new URLSearchParams();
+      if (cur.name) params.set("name", cur.name);
+      if (cur.channel) params.set("channel", cur.channel);
+      if (cur.syncMode) params.set("syncMode", cur.syncMode);
+      if (cur.targetType) params.set("targetType", cur.targetType);
+      if (cur.status) params.set("status", cur.status);
+      const qs = params.toString();
+      const res = await fetch(`/api/sync${qs ? `?${qs}` : ""}`);
       const d = await res.json();
       setData(d.success ? d.data : d);
     } finally { setLoading(false); }
@@ -85,12 +94,27 @@ export default function SyncPage() {
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
         <h2 style={{ margin: 0 }}>数据同步</h2>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={fetchData}>刷新</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => fetchData()}>刷新</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(undefined); setModalOpen(true); }}>
             新建同步任务
           </Button>
         </Space>
       </div>
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Space wrap>
+          <Input placeholder="任务名称" prefix={<SearchOutlined />} value={filters.name} onChange={(e) => setFilters({ ...filters, name: e.target.value })} onPressEnter={() => fetchData()} allowClear style={{ width: 180 }} />
+          <Select placeholder="同步通道" value={filters.channel || undefined} onChange={(v) => { const f = { ...filters, channel: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 130 }}
+            options={[{ label: "Glue ETL", value: "glue" }, { label: "Zero-ETL", value: "zero-etl" }, { label: "DMS CDC", value: "dms" }]} />
+          <Select placeholder="同步模式" value={filters.syncMode || undefined} onChange={(v) => { const f = { ...filters, syncMode: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 120 }}
+            options={[{ label: "全量", value: "full" }, { label: "增量", value: "incremental" }]} />
+          <Select placeholder="目标" value={filters.targetType || undefined} onChange={(v) => { const f = { ...filters, targetType: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 140 }}
+            options={[{ label: "S3 数据湖", value: "s3-tables" }, { label: "Redshift", value: "redshift" }, { label: "S3 + Redshift", value: "both" }]} />
+          <Select placeholder="状态" value={filters.status || undefined} onChange={(v) => { const f = { ...filters, status: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 110 }}
+            options={[{ label: "草稿", value: "draft" }, { label: "运行中", value: "running" }, { label: "已停止", value: "stopped" }, { label: "异常", value: "error" }]} />
+          <Button type="primary" icon={<SearchOutlined />} onClick={() => fetchData()}>搜索</Button>
+          <Button onClick={() => { const f = { name: "", channel: "", syncMode: "", targetType: "", status: "" }; setFilters(f); fetchData(f); }}>重置</Button>
+        </Space>
+      </Card>
       <Table columns={columns} dataSource={data} rowKey="taskId" loading={loading} />
       <SyncTaskModal open={modalOpen} editing={editing} onClose={() => setModalOpen(false)} onSuccess={() => { setModalOpen(false); fetchData(); }} />
     </div>
