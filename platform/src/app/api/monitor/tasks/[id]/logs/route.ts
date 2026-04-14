@@ -67,8 +67,6 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
       const { logStreams = [] } = await cwl.send(new DescribeLogStreamsCommand({
         logGroupName: logGroup,
         logStreamNamePrefix: `dag_id=${dagId}/`,
-        orderBy: "LastEventTime",
-        descending: true,
         limit: 10,
       }));
 
