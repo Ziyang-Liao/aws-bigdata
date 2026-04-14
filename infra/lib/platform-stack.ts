@@ -72,7 +72,7 @@ export class PlatformStack extends cdk.Stack {
       ],
     });
     taskRole.addToPolicy(new iam.PolicyStatement({
-      actions: ["s3tables:*", "lakeformation:*", "cognito-idp:*", "airflow:*"],
+      actions: ["s3tables:*", "lakeformation:*", "cognito-idp:*", "airflow:*", "scheduler:*", "iam:PassRole"],
       resources: ["*"],
     }));
 
