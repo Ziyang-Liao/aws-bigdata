@@ -113,6 +113,7 @@ export class PlatformStack extends cdk.Stack {
         GLUE_ROLE_ARN: glueRole.roleArn,
         MWAA_DAG_BUCKET: `bgp-mwaa-dags-${cdk.Stack.of(this).account}`,
         MWAA_ENV_NAME: "bgp-mwaa",
+        OPENMETADATA_URL: `http://bgp-openmetadata-alb.internal`,
         PLATFORM_ALB_DNS: albDns,
         DEFAULT_VPC_ID: props.vpc.vpcId,
         DEFAULT_SUBNET_ID: props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }).subnetIds[0],

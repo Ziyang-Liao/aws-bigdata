@@ -8,6 +8,7 @@ import { RedshiftStack } from "../lib/redshift-stack";
 import { RdsStack } from "../lib/rds-stack";
 import { MwaaStack } from "../lib/mwaa-stack";
 import { PlatformStack } from "../lib/platform-stack";
+import { OpenMetadataStack } from "../lib/openmetadata-stack";
 
 const app = new cdk.App();
 const env = { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION || "us-east-1" };
@@ -29,3 +30,5 @@ new MwaaStack(app, "BgpMwaaStack", {
   dagBucketArn: platform.dagBucket.bucketArn,
   albSecurityGroup: platform.albSecurityGroup,
 });
+
+new OpenMetadataStack(app, "BgpOpenMetadataStack", { env, vpc: vpc.vpc });
