@@ -11,7 +11,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
       KeyConditionExpression: "taskId = :tid",
       ExpressionAttributeValues: { ":tid": params.id },
       ScanIndexForward: false,
-      Limit: 50,
+      Limit: 200,
     }));
 
     const runs = Items;

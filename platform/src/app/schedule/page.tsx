@@ -124,7 +124,7 @@ export default function SchedulePage() {
           expandedRowRender: (record: any) => {
             const runs = runRecords[record.itemId] || [];
             return (
-              <Table size="small" dataSource={runs.slice(0, 10)} rowKey="runId" pagination={false}
+              <Table size="small" dataSource={runs} rowKey="runId" pagination={{ pageSize: 10, size: "small" }}
                 locale={{ emptyText: "暂无执行记录" }}
                 columns={[
                   { title: "运行ID", dataIndex: "runId", width: 160, render: (v: string) => <code style={{fontSize:11}}>{v?.slice(0,16)}</code> },
