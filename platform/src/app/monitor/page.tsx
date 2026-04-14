@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { Card, Col, Row, Statistic, Table, Tag, Tabs, Modal, Button, Space, Select, Badge, message } from "antd";
-import { CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, ClockCircleOutlined, FileTextOutlined, ReloadOutlined, RedoOutlined, FieldTimeOutlined, PercentageOutlined } from "@ant-design/icons";
+import { Card, Col, Row, Statistic, Table, Tag, Tabs, Modal, Button, Space, Select, Badge, Input, DatePicker, message } from "antd";
+import { CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, ClockCircleOutlined, FileTextOutlined, ReloadOutlined, RedoOutlined, FieldTimeOutlined, SearchOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 
 export default function MonitorPage() {
   const [runs, setRuns] = useState<any[]>([]);
@@ -11,10 +12,23 @@ export default function MonitorPage() {
   const [logModal, setLogModal] = useState<{ open: boolean; taskId: string; runId: string; logs: any[] }>({ open: false, taskId: "", runId: "", logs: [] });
   const [refreshInterval, setRefreshInterval] = useState(10);
   const timerRef = useRef<NodeJS.Timeout>(undefined);
+  const [filters, setFilters] = useState({ name: "", status: "", taskType: "", triggeredBy: "", startDate: "", endDate: "" });
 
-  const fetchData = () => {
+  const buildQuery = (f: typeof filters) => {
+    const params = new URLSearchParams();
+    if (f.name) params.set("name", f.name);
+    if (f.status) params.set("status", f.status);
+    if (f.taskType) params.set("taskType", f.taskType);
+    if (f.triggeredBy) params.set("triggeredBy", f.triggeredBy);
+    if (f.startDate) params.set("startDate", f.startDate);
+    if (f.endDate) params.set("endDate", f.endDate);
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
+  };
+
+  const fetchData = (f?: typeof filters) => {
     setLoading(true);
-    fetch("/api/monitor/runs").then((r) => r.json()).then((d) => {
+    fetch(`/api/monitor/runs${buildQuery(f || filters)}`).then((r) => r.json()).then((d) => {
       setRuns(d.runs || []);
       setStats(d.stats || {});
     }).finally(() => setLoading(false));
@@ -23,9 +37,12 @@ export default function MonitorPage() {
   useEffect(() => { fetchData(); }, []);
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
-    if (refreshInterval > 0) timerRef.current = setInterval(fetchData, refreshInterval * 1000);
+    if (refreshInterval > 0) timerRef.current = setInterval(() => fetchData(), refreshInterval * 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [refreshInterval]);
+  }, [refreshInterval, filters]);
+
+  const onSearch = () => fetchData(filters);
+  const onReset = () => { const f = { name: "", status: "", taskType: "", triggeredBy: "", startDate: "", endDate: "" }; setFilters(f); fetchData(f); };
 
   const viewLog = async (taskId: string, runId: string) => {
     setLogModal({ open: true, taskId, runId, logs: [] });
@@ -44,8 +61,7 @@ export default function MonitorPage() {
 
   const statusBadge = (v: string) => {
     const m: Record<string, { s: any; t: string }> = {
-      succeeded: { s: "success", t: "成功" }, failed: { s: "error", t: "失败" },
-      running: { s: "processing", t: "运行中" },
+      succeeded: { s: "success", t: "成功" }, failed: { s: "error", t: "失败" }, running: { s: "processing", t: "运行中" },
     };
     const st = m[v] || { s: "default", t: v };
     return <Badge status={st.s} text={st.t} />;
@@ -69,9 +85,7 @@ export default function MonitorPage() {
       render: (_: any, r: any) => (
         <Space>
           <Button size="small" type="link" icon={<FileTextOutlined />} onClick={() => viewLog(r.taskId, r.runId)}>日志</Button>
-          {r.status === "failed" && (
-            <Button size="small" type="link" danger icon={<RedoOutlined />} onClick={() => retryTask(r.taskId, r.taskType)}>重试</Button>
-          )}
+          {r.status === "failed" && <Button size="small" type="link" danger icon={<RedoOutlined />} onClick={() => retryTask(r.taskId, r.taskType)}>重试</Button>}
         </Space>
       ),
     },
@@ -91,7 +105,7 @@ export default function MonitorPage() {
           <Select value={refreshInterval} onChange={setRefreshInterval} style={{ width: 130 }} options={[
             { label: "手动刷新", value: 0 }, { label: "5秒自动", value: 5 }, { label: "10秒自动", value: 10 }, { label: "30秒自动", value: 30 },
           ]} />
-          <Button icon={<ReloadOutlined />} onClick={fetchData}>刷新</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => fetchData()}>刷新</Button>
         </Space>
       </div>
 
@@ -104,6 +118,25 @@ export default function MonitorPage() {
         <Col span={4}><Card size="small"><Statistic title="平均耗时" value={stats.avgDuration || 0} suffix="s" prefix={<FieldTimeOutlined />} /></Card></Col>
       </Row>
 
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Space wrap>
+          <Input placeholder="任务名称" prefix={<SearchOutlined />} value={filters.name} onChange={(e) => setFilters({ ...filters, name: e.target.value })} onPressEnter={onSearch} style={{ width: 180 }} allowClear />
+          <Select placeholder="状态" value={filters.status || undefined} onChange={(v) => { const f = { ...filters, status: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 110 }}
+            options={[{ label: "成功", value: "succeeded" }, { label: "失败", value: "failed" }, { label: "运行中", value: "running" }]} />
+          <Select placeholder="任务类型" value={filters.taskType || undefined} onChange={(v) => { const f = { ...filters, taskType: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 120 }}
+            options={[{ label: "同步", value: "sync" }, { label: "工作流", value: "workflow" }]} />
+          <Select placeholder="触发方式" value={filters.triggeredBy || undefined} onChange={(v) => { const f = { ...filters, triggeredBy: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 120 }}
+            options={[{ label: "自动", value: "schedule" }, { label: "手动", value: "manual" }]} />
+          <DatePicker.RangePicker size="middle" allowClear
+            onChange={(dates) => {
+              const f = { ...filters, startDate: dates?.[0]?.format("YYYY-MM-DD") || "", endDate: dates?.[1]?.format("YYYY-MM-DD") || "" };
+              setFilters(f); fetchData(f);
+            }} />
+          <Button type="primary" icon={<SearchOutlined />} onClick={onSearch}>搜索</Button>
+          <Button onClick={onReset}>重置</Button>
+        </Space>
+      </Card>
+
       <Tabs items={[
         { key: "all", label: `全部运行 (${runs.length})`,
           children: <Table columns={columns} dataSource={runs} rowKey={(r) => `${r.taskId}-${r.runId}`} loading={loading} pagination={{ pageSize: 20 }} size="small" /> },
@@ -115,7 +148,7 @@ export default function MonitorPage() {
           children: <Table columns={columns} dataSource={todayRuns} rowKey={(r) => `${r.taskId}-${r.runId}`} loading={loading} pagination={{ pageSize: 20 }} size="small" /> },
       ]} />
 
-      <Modal title={`运行日志`} open={logModal.open} onCancel={() => setLogModal({ open: false, taskId: "", runId: "", logs: [] })} footer={null} width={900}>
+      <Modal title="运行日志" open={logModal.open} onCancel={() => setLogModal({ open: false, taskId: "", runId: "", logs: [] })} footer={null} width={900}>
         <div style={{ maxHeight: 500, overflow: "auto", background: "#1e1e1e", color: "#d4d4d4", padding: 16, borderRadius: 8, fontFamily: "monospace", fontSize: 12, whiteSpace: "pre-wrap" }}>
           {logModal.logs.length > 0 ? logModal.logs.map((log, i) => (
             <div key={i}>{log.timestamp ? <span style={{ color: "#6a9955" }}>{new Date(log.timestamp).toISOString().slice(0, 19)} </span> : null}{typeof log === "string" ? log : log.message}</div>
