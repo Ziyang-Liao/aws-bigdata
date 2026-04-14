@@ -9,6 +9,9 @@ import { RdsStack } from "../lib/rds-stack";
 import { MwaaStack } from "../lib/mwaa-stack";
 import { PlatformStack } from "../lib/platform-stack";
 import { OpenMetadataStack } from "../lib/openmetadata-stack";
+import { OmDatabaseStack } from "../lib/om-database-stack";
+import { OmSearchStack } from "../lib/om-search-stack";
+import { OmServiceStack } from "../lib/om-service-stack";
 
 const app = new cdk.App();
 const env = { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION || "us-east-1" };
@@ -32,3 +35,9 @@ new MwaaStack(app, "BgpMwaaStack", {
 });
 
 new OpenMetadataStack(app, "BgpOpenMetadataStack", { env, vpc: vpc.vpc });
+
+const omDb = new OmDatabaseStack(app, "BgpOmDatabaseStack", { env, vpc: vpc.vpc });
+const omSearch = new OmSearchStack(app, "BgpOmSearchStack", { env, vpc: vpc.vpc });
+new OmServiceStack(app, "BgpOmServiceStack", {
+  env, vpc: vpc.vpc, db: omDb.db, searchEndpoint: omSearch.domain.domainEndpoint,
+});
