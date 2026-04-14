@@ -53,7 +53,36 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
   // Try workflow
   const { Item: wf } = await docClient.send(new GetCommand({ TableName: TABLES.WORKFLOWS, Key: { userId: USER_ID, workflowId: params.id } }));
   if (wf) {
-    return NextResponse.json({ logs: [], message: "工作流日志需要先触发运行" });
+    const dagId = wf.airflowDagId;
+    if (!dagId) return NextResponse.json({ logs: [{ message: "工作流尚未发布" }] });
+
+    try {
+      const { CloudWatchLogsClient, FilterLogEventsCommand } = await import("@aws-sdk/client-cloudwatch-logs");
+      const cwl = new CloudWatchLogsClient({ region: process.env.AWS_REGION || "us-east-1" });
+      const envName = process.env.MWAA_ENV_NAME || "bgp-mwaa";
+      const allLogs: any[] = [];
+
+      for (const logGroup of [`airflow-${envName}-Task`, `airflow-${envName}-Worker`]) {
+        try {
+          const { events = [] } = await cwl.send(new FilterLogEventsCommand({
+            logGroupName: logGroup,
+            filterPattern: dagId,
+            startTime: Date.now() - 3600000,
+            limit: 200,
+          }));
+          for (const e of events) {
+            allLogs.push({ timestamp: e.timestamp, message: e.message?.trim() });
+          }
+        } catch {}
+      }
+
+      if (allLogs.length > 0) {
+        allLogs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        return NextResponse.json({ logs: allLogs });
+      }
+    } catch {}
+
+    return NextResponse.json({ logs: [{ message: "暂无日志，请触发运行后查看" }] });
   }
 
   return NextResponse.json({ logs: [], message: "暂无日志" });

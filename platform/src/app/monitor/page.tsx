@@ -40,7 +40,7 @@ export default function MonitorPage() {
 
   const statusRender = (v: string) => {
     const m: Record<string, { s: any; t: string }> = {
-      running: { s: "processing", t: "运行中" }, active: { s: "success", t: "运行中" },
+      running: { s: "processing", t: "运行中" }, active: { s: "processing", t: "已发布" },
       draft: { s: "default", t: "草稿" }, stopped: { s: "warning", t: "已停止" },
       paused: { s: "warning", t: "已暂停" }, error: { s: "error", t: "异常" }, testing: { s: "processing", t: "测试中" },
     };
