@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { Table, Switch, Tag, message, Modal, Button, Space, Select, Badge } from "antd";
-import { ReloadOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import { ReloadOutlined, ClockCircleOutlined, HistoryOutlined } from "@ant-design/icons";
 import CronEditor from "@/components/common/CronEditor";
 
 export default function SchedulePage() {
@@ -10,6 +10,14 @@ export default function SchedulePage() {
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [cronModal, setCronModal] = useState<{ open: boolean; item?: any; cron: string }>({ open: false, cron: "" });
+  const [runRecords, setRunRecords] = useState<Record<string, any[]>>({});
+
+  const fetchRuns = async (id: string) => {
+    const res = await fetch(`/api/sync/${id}/runs`);
+    const d = await res.json();
+    const runs = d.data?.runs || d.runs || d.Items || [];
+    setRunRecords((prev) => ({ ...prev, [id]: runs }));
+  };
   const [refreshInterval, setRefreshInterval] = useState(0);
   const timerRef = useRef<NodeJS.Timeout>(undefined);
 
@@ -74,7 +82,11 @@ export default function SchedulePage() {
     { title: "调度引擎", key: "engine", render: (_: any, r: any) => (
       r.scheduleName ? <Tag color="green">EventBridge: {r.scheduleName}</Tag> : <Tag>未配置</Tag>
     )},
-    { title: "状态", dataIndex: "status", key: "status", render: (v: string) => <Badge status={v === "running" || v === "active" ? "processing" : v === "error" ? "error" : "default"} text={v} /> },
+    { title: "状态", dataIndex: "status", key: "status", render: (v: string) => <Badge status={v === "running" || v === "active" ? "processing" : v === "error" ? "error" : "default"} text={v === "active" ? "已发布" : v} /> },
+    { title: "最近运行", key: "lastRun", render: (_: any, r: any) => {
+      const s = r.lastRunStatus;
+      return s ? <Badge status={s === "succeeded" ? "success" : s === "failed" ? "error" : "processing"} text={s === "succeeded" ? "成功" : s === "failed" ? "失败" : s === "running" ? "运行中" : s} /> : <Tag>未运行</Tag>;
+    }},
   ];
 
   return (
@@ -88,7 +100,28 @@ export default function SchedulePage() {
           <Button icon={<ReloadOutlined />} onClick={fetchData}>刷新</Button>
         </Space>
       </div>
-      <Table columns={columns} dataSource={allItems} loading={loading} pagination={{ pageSize: 20 }} />
+      <Table columns={columns} dataSource={allItems} loading={loading} pagination={{ pageSize: 20 }}
+        expandable={{
+          expandedRowRender: (record: any) => {
+            const runs = runRecords[record.itemId] || [];
+            return (
+              <Table size="small" dataSource={runs.slice(0, 10)} rowKey="runId" pagination={false}
+                locale={{ emptyText: "暂无执行记录" }}
+                columns={[
+                  { title: "运行ID", dataIndex: "runId", width: 160, render: (v: string) => <code style={{fontSize:11}}>{v?.slice(0,16)}</code> },
+                  { title: "状态", dataIndex: "status", width: 90, render: (v: string) => <Badge status={v === "succeeded" ? "success" : v === "failed" ? "error" : v === "running" ? "processing" : "default"} text={v === "succeeded" ? "成功" : v === "failed" ? "失败" : v === "running" ? "运行中" : v} /> },
+                  { title: "触发", dataIndex: "triggeredBy", width: 80, render: (v: string) => <Tag>{v || "manual"}</Tag> },
+                  { title: "开始时间", dataIndex: "startedAt", width: 170, render: (v: string) => v?.slice(0,19).replace("T"," ") },
+                  { title: "结束时间", dataIndex: "finishedAt", width: 170, render: (v: string) => v ? v.slice(0,19).replace("T"," ") : "-" },
+                  { title: "耗时", dataIndex: "duration", width: 70, render: (v: number) => v ? `${v}s` : "-" },
+                  { title: "错误", dataIndex: "error", ellipsis: true, render: (v: string) => v ? <span style={{color:"#ff4d4f"}}>{v}</span> : "-" },
+                ]}
+              />
+            );
+          },
+          onExpand: (expanded: boolean, record: any) => { if (expanded) fetchRuns(record.itemId); },
+        }}
+      />
 
       <Modal title="配置调度" open={cronModal.open} onOk={saveCron} onCancel={() => setCronModal({ open: false, cron: "" })} width={520}>
         <div style={{ marginBottom: 8, fontWeight: 500 }}>{cronModal.item?.itemName}</div>
