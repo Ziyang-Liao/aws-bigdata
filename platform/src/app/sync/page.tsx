@@ -53,7 +53,8 @@ export default function SyncPage() {
   };
 
   const columns = [
-    { title: "任务名称", dataIndex: "name", key: "name" },
+    { title: "任务名称", dataIndex: "name", key: "name",
+      render: (v: string, r: any) => <a href={`/sync/${r.taskId}`}><b>{v}</b></a> },
     { title: "同步通道", dataIndex: "channel", key: "channel", render: (v: string) => channelLabel[v] || v },
     { title: "同步模式", dataIndex: "syncMode", key: "syncMode", render: (v: string) => v === "full" ? "全量" : "增量" },
     { title: "目标", dataIndex: "targetType", key: "targetType", render: (v: string) => v?.toUpperCase() },

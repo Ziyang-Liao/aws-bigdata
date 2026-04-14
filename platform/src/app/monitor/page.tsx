@@ -54,7 +54,8 @@ export default function MonitorPage() {
   const columns = [
     { title: "时间", dataIndex: "startedAt", key: "time", width: 170,
       render: (v: string, r: any) => (v || r.finishedAt || "").slice(0, 19).replace("T", " ") || "-" },
-    { title: "任务名", dataIndex: "taskName", key: "name", render: (v: string) => <b>{v}</b> },
+    { title: "任务名", dataIndex: "taskName", key: "name",
+      render: (v: string, r: any) => <a href={r.taskType === "workflow" ? `/workflow/${r.taskId}` : `/sync/${r.taskId}`}><b>{v}</b></a> },
     { title: "类型", dataIndex: "taskType", key: "type", width: 90,
       render: (v: string) => <Tag color={v === "sync" ? "blue" : "purple"}>{v === "sync" ? "同步" : "工作流"}</Tag> },
     { title: "触发", dataIndex: "triggeredBy", key: "trigger", width: 80,

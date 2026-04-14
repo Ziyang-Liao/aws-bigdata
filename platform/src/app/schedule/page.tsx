@@ -86,7 +86,8 @@ export default function SchedulePage() {
   ];
 
   const columns = [
-    { title: "名称", dataIndex: "itemName", key: "name", render: (v: string) => <b>{v}</b> },
+    { title: "名称", dataIndex: "itemName", key: "name",
+      render: (v: string, r: any) => <a href={r.itemType === "workflow" ? `/workflow/${r.itemId}` : `/sync/${r.itemId}`}><b>{v}</b></a> },
     { title: "类型", dataIndex: "itemType", key: "type", render: (v: string) => <Tag color={v === "sync" ? "blue" : "purple"}>{v === "sync" ? "同步任务" : "工作流"}</Tag> },
     { title: "Cron 表达式", key: "cron", render: (_: any, r: any) => (
       <Space>

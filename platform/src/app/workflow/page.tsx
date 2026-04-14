@@ -54,7 +54,8 @@ export default function WorkflowPage() {
   };
 
   const columns = [
-    { title: "工作流名称", dataIndex: "name", key: "name", render: (v: string) => <b>{v}</b> },
+    { title: "工作流名称", dataIndex: "name", key: "name",
+      render: (v: string, r: any) => <a href={`/workflow/${r.workflowId}`}><b>{v}</b></a> },
     { title: "描述", dataIndex: "description", key: "description", ellipsis: true },
     {
       title: "节点", key: "nodes",
