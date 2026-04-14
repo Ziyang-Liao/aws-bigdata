@@ -48,7 +48,6 @@ export class OmServiceStack extends cdk.Stack {
         SERVER_PORT: "8585",
         SERVER_ADMIN_PORT: "8586",
         AUTHENTICATION_PROVIDER: "basic",
-        AUTHORIZER_ADMIN_PRINCIPALS: "[admin]",
         AUTHORIZER_PRINCIPAL_DOMAIN: "open-metadata.org",
         MIGRATION_LIMIT_PARAM: "1200",
       },
@@ -56,7 +55,7 @@ export class OmServiceStack extends cdk.Stack {
         DB_USER_PASSWORD: ecs.Secret.fromSecretsManager(props.db.secret!, "password"),
         DB_USER: ecs.Secret.fromSecretsManager(props.db.secret!, "username"),
       },
-      command: ["sh", "-c", "./bootstrap/openmetadata-ops.sh migrate && /opt/openmetadata/bootstrap/openmetadata-start.sh"],
+      command: ["-c", "./bootstrap/openmetadata-ops.sh migrate && /openmetadata-start.sh"],
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: "openmetadata", logRetention: logs.RetentionDays.ONE_WEEK }),
       healthCheck: {
         command: ["CMD-SHELL", "curl -f http://localhost:8585/api/v1/system/version || exit 1"],

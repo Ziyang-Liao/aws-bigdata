@@ -22,7 +22,9 @@ export class OmDatabaseStack extends cdk.Stack {
       vpc: props.vpc, vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [this.dbSg],
       databaseName: "openmetadata_db",
-      credentials: rds.Credentials.fromGeneratedSecret("omadmin"),
+      credentials: rds.Credentials.fromGeneratedSecret("omadmin", {
+        excludeCharacters: "'\"{}[]#&*?|>!%@\\",
+      }),
       allocatedStorage: 20, multiAz: false,
       removalPolicy: cdk.RemovalPolicy.DESTROY, deletionProtection: false,
       parameters: { sort_buffer_size: "20971520" },
