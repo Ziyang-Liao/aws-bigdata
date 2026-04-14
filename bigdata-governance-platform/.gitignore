@@ -1,8 +1,0 @@
-node_modules/
-.next/
-dist/
-*.js.map
-.env
-.env.local
-cdk.out/
-e2e/screenshots/
