@@ -113,8 +113,8 @@ export class PlatformStack extends cdk.Stack {
         GLUE_ROLE_ARN: glueRole.roleArn,
         MWAA_DAG_BUCKET: `bgp-mwaa-dags-${cdk.Stack.of(this).account}`,
         MWAA_ENV_NAME: "bgp-mwaa",
-        OPENMETADATA_URL: `http://internal-BgpOmS-OmAlb-NouhWXI5oMEw-288542404.us-east-1.elb.amazonaws.com`,
-        OPENMETADATA_PUBLIC_URL: "https://d1wa3p15cvv06t.cloudfront.net",
+        OPENMETADATA_URL: process.env.OPENMETADATA_URL || "",
+        OPENMETADATA_PUBLIC_URL: process.env.OPENMETADATA_PUBLIC_URL || "",
         PLATFORM_ALB_DNS: albDns,
         DEFAULT_VPC_ID: props.vpc.vpcId,
         DEFAULT_SUBNET_ID: props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }).subnetIds[0],
@@ -130,9 +130,11 @@ export class PlatformStack extends cdk.Stack {
     cfnSg.addPropertyOverride("SecurityGroupIngress", []);
 
     // Add CloudFront managed prefix list as ingress source
-    // com.amazonaws.global.cloudfront.origin-facing prefix list ID varies by region
+    // CloudFront managed prefix list (region-specific, looked up via CDK context or env)
     const cfPrefixListId = ec2.Peer.prefixList(
-      ec2.PrefixList.fromPrefixListId(this, "CfPrefixList", "pl-3b927c52").prefixListId
+      ec2.PrefixList.fromPrefixListId(this, "CfPrefixList",
+        this.node.tryGetContext("cloudfront-prefix-list") || "pl-3b927c52"
+      ).prefixListId
     );
     albSg.addIngressRule(cfPrefixListId, ec2.Port.tcp(80), "Allow CloudFront only");
     albSg.addIngressRule(ec2.Peer.ipv4(props.vpc.vpcCidrBlock), ec2.Port.tcp(80), "Allow VPC internal");
