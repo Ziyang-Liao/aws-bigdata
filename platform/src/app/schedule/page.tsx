@@ -22,7 +22,7 @@ export default function SchedulePage() {
 
   const viewLog = async (id: string, runId?: string) => {
     setLogModal({ open: true, id, logs: [] });
-    const url = runId ? `/api/monitor/tasks/${id}/logs?runId=${runId}` : `/api/monitor/tasks/${id}/logs`;
+    const url = runId ? `/api/monitor/tasks/${id}/logs?runId=${encodeURIComponent(runId)}` : `/api/monitor/tasks/${id}/logs`;
     const res = await fetch(url);
     const data = await res.json();
     setLogModal({ open: true, id, logs: data.logs || [] });

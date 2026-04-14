@@ -28,7 +28,7 @@ export default function WorkflowEditorPage() {
   const viewRunLog = async (runId: string) => {
     setLogModal({ open: true, runId, logs: [] });
     try {
-      const res = await fetch(`/api/monitor/tasks/${id}/logs?runId=${runId}`);
+      const res = await fetch(`/api/monitor/tasks/${id}/logs?runId=${encodeURIComponent(runId)}`);
       const data = await res.json();
       const logs = (data.logs || []).map((l: any) => typeof l === "string" ? l : (l.timestamp ? `[${new Date(l.timestamp).toISOString().slice(0,19)}] ` : "") + (l.message || ""));
       setLogModal({ open: true, runId, logs: logs.length > 0 ? logs : ["暂无日志"] });

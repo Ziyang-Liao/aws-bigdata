@@ -41,17 +41,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       const cwl = new CloudWatchLogsClient({ region: process.env.AWS_REGION || "us-east-1" });
       const logGroup = `airflow-${process.env.MWAA_ENV_NAME || "bgp-mwaa"}-Task`;
 
-      // Build stream prefix: if runId provided, filter to that specific run
-      const prefix = runId ? `dag_id=${dagId}/run_id=${runId}/` : `dag_id=${dagId}/`;
+      // Build stream prefix: Airflow replaces : with _ in log stream names
+      const sanitizedRunId = runId?.replace(/:/g, "_");
+      const prefix = sanitizedRunId ? `dag_id=${dagId}/run_id=${sanitizedRunId}/` : `dag_id=${dagId}/`;
       const { logStreams = [] } = await cwl.send(new DescribeLogStreamsCommand({
         logGroupName: logGroup, logStreamNamePrefix: prefix, limit: 20,
       }));
 
       if (!runId && logStreams.length > 0) {
-        // No specific run requested: get the latest run's streams
-        // Stream names: dag_id=xxx/run_id=yyy/task_id=zzz/attempt=1.log
+        // No specific run: get latest run's streams
         const runIds = Array.from(new Set(logStreams.map(s => s.logStreamName?.split("/")[1] || "")));
-        const latestRunId = runIds[runIds.length - 1]; // last one is latest
+        const latestRunId = runIds[runIds.length - 1];
         const filtered = logStreams.filter(s => s.logStreamName?.includes(latestRunId));
         return await fetchLogsFromStreams(cwl, logGroup, filtered);
       }
