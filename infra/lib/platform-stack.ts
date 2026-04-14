@@ -35,7 +35,10 @@ export class PlatformStack extends cdk.Stack {
     // Glue Job execution role
     const glueRole = new iam.Role(this, "GlueRole", {
       roleName: "bgp-glue-role",
-      assumedBy: new iam.ServicePrincipal("glue.amazonaws.com"),
+      assumedBy: new iam.CompositePrincipal(
+        new iam.ServicePrincipal("glue.amazonaws.com"),
+        new iam.ServicePrincipal("scheduler.amazonaws.com"),
+      ),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSGlueServiceRole"),
         iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess"),
