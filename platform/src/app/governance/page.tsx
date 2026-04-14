@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import { Tabs, Input, Table, Card, Tag, Space, Button, Empty, Spin, Select } from "antd";
 import { SearchOutlined, DatabaseOutlined, ApartmentOutlined } from "@ant-design/icons";
 import dynamic from "next/dynamic";
+import "reactflow/dist/style.css";
 
 const ReactFlow = dynamic(() => import("reactflow").then((m) => m.default), { ssr: false });
 
@@ -17,6 +18,7 @@ export default function GovernancePage() {
   const [lineageFqn, setLineageFqn] = useState("");
   const [lineageData, setLineageData] = useState<any>(null);
   const [lineageLoading, setLineageLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("catalog");
 
   const searchCatalog = async (kw?: string) => {
     setCatalogLoading(true);
@@ -39,14 +41,54 @@ export default function GovernancePage() {
 
   useEffect(() => { searchCatalog(""); }, []);
 
-  // Convert lineage data to ReactFlow nodes/edges
-  const rfNodes = lineageData?.nodes?.map((n: any, i: number) => {
+  // Convert lineage data to ReactFlow nodes/edges with layered layout
+  const rfEdgesRaw = lineageData?.edges || [];
+  const rfNodeData = lineageData?.nodes || [];
+
+  // Compute layers: BFS from center node
+  const layerMap: Record<string, number> = {};
+  const center = lineageData?.centerNode || rfNodeData[0]?.fqn;
+  if (center) {
+    layerMap[center] = 0;
+    const sourceOf: Record<string, string[]> = {};
+    const targetOf: Record<string, string[]> = {};
+    for (const e of rfEdgesRaw) {
+      if (!sourceOf[e.source]) sourceOf[e.source] = [];
+      sourceOf[e.source].push(e.target);
+      if (!targetOf[e.target]) targetOf[e.target] = [];
+      targetOf[e.target].push(e.source);
+    }
+    // Upstream (sources that feed into center)
+    const queue = [center];
+    while (queue.length) {
+      const cur = queue.shift()!;
+      for (const src of (targetOf[cur] || [])) {
+        if (!(src in layerMap)) { layerMap[src] = layerMap[cur] - 1; queue.push(src); }
+      }
+      for (const tgt of (sourceOf[cur] || [])) {
+        if (!(tgt in layerMap)) { layerMap[tgt] = layerMap[cur] + 1; queue.push(tgt); }
+      }
+    }
+  }
+  // Normalize layers to start from 0
+  const minLayer = Math.min(0, ...Object.values(layerMap));
+  const layerNodes: Record<number, string[]> = {};
+  for (const [fqn, layer] of Object.entries(layerMap)) {
+    const l = layer - minLayer;
+    if (!layerNodes[l]) layerNodes[l] = [];
+    layerNodes[l].push(fqn);
+  }
+
+  const rfNodes = rfNodeData.map((n: any) => {
+    const layer = (layerMap[n.fqn] || 0) - minLayer;
+    const siblings = layerNodes[layer] || [n.fqn];
+    const idx = siblings.indexOf(n.fqn);
     const parts = n.fqn.split(".");
     const label = parts.slice(-1)[0];
     const dbInfo = parts.slice(0, -1).join(".");
     return {
       id: n.fqn,
-      position: { x: 250 * (i % 4), y: 120 * Math.floor(i / 4) },
+      position: { x: layer * 300, y: idx * 140 },
       data: {
         label: (
           <div style={{ textAlign: "center" }}>
@@ -58,8 +100,8 @@ export default function GovernancePage() {
       },
       style: {
         border: `2px solid ${typeColor[n.type] || "#d9d9d9"}`,
-        borderRadius: 8, padding: 8, minWidth: 120,
-        background: n.fqn === lineageData?.centerNode ? "#e6f4ff" : "#fff",
+        borderRadius: 8, padding: 8, minWidth: 140,
+        background: n.fqn === center ? "#e6f4ff" : "#fff",
       },
     };
   }) || [];
@@ -85,14 +127,14 @@ export default function GovernancePage() {
     { title: "格式", dataIndex: "format", render: (v: string) => v ? <Tag>{v}</Tag> : "-" },
     { title: "字段数", dataIndex: "columns", render: (v: number) => v || "-" },
     { title: "操作", key: "action", render: (_: any, r: any) => (
-      <Button size="small" icon={<ApartmentOutlined />} onClick={() => loadLineage(r.fqn)}>血缘</Button>
+      <Button size="small" icon={<ApartmentOutlined />} onClick={() => { loadLineage(r.fqn); setActiveTab("lineage"); }}>血缘</Button>
     )},
   ];
 
   return (
     <div>
       <h2><DatabaseOutlined /> 数据治理</h2>
-      <Tabs items={[
+      <Tabs activeKey={activeTab} onChange={setActiveTab} items={[
         { key: "catalog", label: `数据目录 (${catalogData.length})`, children: (
           <div>
             <Input.Search placeholder="搜索数据资产（表名/库名）..." value={keyword} onChange={(e) => setKeyword(e.target.value)}
