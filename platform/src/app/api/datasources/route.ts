@@ -8,11 +8,33 @@ import { ulid } from "ulid";
 
 const USER_ID = "default-user"; // TODO: AUTH-01 replace with Cognito
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const { Items = [] } = await docClient.send(
-      new ScanCommand({ TableName: TABLES.DATASOURCES, FilterExpression: "userId = :uid", ExpressionAttributeValues: { ":uid": USER_ID } })
-    );
+    const p = req.nextUrl.searchParams;
+    const name = p.get("name") || "";
+    const type = p.get("type") || "";
+    const status = p.get("status") || "";
+    const hasGlue = p.get("hasGlue") || "";
+    const hasSecret = p.get("hasSecret") || "";
+
+    const filterParts: string[] = ["userId = :uid"];
+    const attrNames: Record<string, string> = {};
+    const attrValues: Record<string, any> = { ":uid": USER_ID };
+
+    if (name) { filterParts.push("contains(#nm, :nm)"); attrNames["#nm"] = "name"; attrValues[":nm"] = name; }
+    if (type) { filterParts.push("#tp = :tp"); attrNames["#tp"] = "type"; attrValues[":tp"] = type; }
+    if (status) { filterParts.push("#st = :st"); attrNames["#st"] = "status"; attrValues[":st"] = status; }
+    if (hasGlue === "true") { filterParts.push("attribute_exists(glueConnectionName)"); }
+    else if (hasGlue === "false") { filterParts.push("attribute_not_exists(glueConnectionName)"); }
+    if (hasSecret === "true") { filterParts.push("attribute_exists(secretArn)"); }
+    else if (hasSecret === "false") { filterParts.push("attribute_not_exists(secretArn)"); }
+
+    const { Items = [] } = await docClient.send(new ScanCommand({
+      TableName: TABLES.DATASOURCES,
+      FilterExpression: filterParts.join(" AND "),
+      ...(Object.keys(attrNames).length > 0 ? { ExpressionAttributeNames: attrNames } : {}),
+      ExpressionAttributeValues: attrValues,
+    }));
     return apiOk(Items);
   } catch (e: any) {
     return apiError(e.message, 500);

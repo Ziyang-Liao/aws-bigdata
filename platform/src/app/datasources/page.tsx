@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Table, Button, Space, Tag, Popconfirm, message, Drawer, Descriptions, Collapse, Badge } from "antd";
-import { PlusOutlined, ReloadOutlined, DatabaseOutlined, TableOutlined } from "@ant-design/icons";
+import { Table, Button, Space, Tag, Popconfirm, message, Drawer, Descriptions, Collapse, Badge, Input, Select, Card } from "antd";
+import { PlusOutlined, ReloadOutlined, DatabaseOutlined, TableOutlined, SearchOutlined } from "@ant-design/icons";
 import type { DataSource } from "@/types/datasource";
 import DataSourceModal from "./DataSourceModal";
 
@@ -15,11 +15,20 @@ export default function DatasourcesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<DataSource | undefined>();
   const [metaDrawer, setMetaDrawer] = useState<{ open: boolean; ds?: DataSource; tables: any[] }>({ open: false, tables: [] });
+  const [filters, setFilters] = useState({ name: "", type: "", status: "", hasGlue: "", hasSecret: "" });
 
-  const fetchData = async () => {
+  const fetchData = async (f?: typeof filters) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/datasources");
+      const cur = f || filters;
+      const params = new URLSearchParams();
+      if (cur.name) params.set("name", cur.name);
+      if (cur.type) params.set("type", cur.type);
+      if (cur.status) params.set("status", cur.status);
+      if (cur.hasGlue) params.set("hasGlue", cur.hasGlue);
+      if (cur.hasSecret) params.set("hasSecret", cur.hasSecret);
+      const qs = params.toString();
+      const res = await fetch(`/api/datasources${qs ? `?${qs}` : ""}`);
       const json = await res.json();
       setData(json.success ? json.data : json);
     } finally { setLoading(false); }
@@ -98,10 +107,25 @@ export default function DatasourcesPage() {
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
         <h2 style={{ margin: 0 }}><DatabaseOutlined /> 数据源管理</h2>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={fetchData}>刷新</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => fetchData()}>刷新</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(undefined); setModalOpen(true); }}>新建数据源</Button>
         </Space>
       </div>
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Space wrap>
+          <Input placeholder="数据源名称" prefix={<SearchOutlined />} value={filters.name} onChange={(e) => setFilters({ ...filters, name: e.target.value })} onPressEnter={() => fetchData()} allowClear style={{ width: 180 }} />
+          <Select placeholder="类型" value={filters.type || undefined} onChange={(v) => { const f = { ...filters, type: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 130 }}
+            options={[{ label: "🐬 MySQL", value: "mysql" }, { label: "🐘 PostgreSQL", value: "postgresql" }, { label: "🔶 Oracle", value: "oracle" }, { label: "🔷 SQL Server", value: "sqlserver" }]} />
+          <Select placeholder="Glue Connection" value={filters.hasGlue || undefined} onChange={(v) => { const f = { ...filters, hasGlue: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 150 }}
+            options={[{ label: "已关联", value: "true" }, { label: "未关联", value: "false" }]} />
+          <Select placeholder="密码存储" value={filters.hasSecret || undefined} onChange={(v) => { const f = { ...filters, hasSecret: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 150 }}
+            options={[{ label: "🔒 已加密", value: "true" }, { label: "⚠️ 未加密", value: "false" }]} />
+          <Select placeholder="状态" value={filters.status || undefined} onChange={(v) => { const f = { ...filters, status: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 110 }}
+            options={[{ label: "已连接", value: "active" }, { label: "异常", value: "error" }, { label: "未激活", value: "inactive" }]} />
+          <Button type="primary" icon={<SearchOutlined />} onClick={() => fetchData()}>搜索</Button>
+          <Button onClick={() => { const f = { name: "", type: "", status: "", hasGlue: "", hasSecret: "" }; setFilters(f); fetchData(f); }}>重置</Button>
+        </Space>
+      </Card>
       <Table columns={columns} dataSource={data} rowKey="datasourceId" loading={loading} />
       <DataSourceModal open={modalOpen} editing={editing} onClose={() => setModalOpen(false)} onSuccess={() => { setModalOpen(false); fetchData(); }} />
 
