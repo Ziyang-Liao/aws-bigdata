@@ -14,12 +14,13 @@ export default function HomePage() {
       fetch("/api/datasources").then((r) => r.json()).then(extract),
       fetch("/api/sync").then((r) => r.json()).then(extract),
       fetch("/api/workflow").then((r) => r.json()).then(extract),
-    ]).then(([ds, sync, wf]) => {
+      fetch("/api/monitor/runs?status=running").then((r) => r.json()),
+    ]).then(([ds, sync, wf, runData]) => {
       setStats({
         datasources: ds.length,
         syncTasks: sync.length,
         workflows: wf.length,
-        running: sync.filter((t: any) => t.status === "running").length + wf.filter((w: any) => w.status === "active").length,
+        running: runData.total || 0,
       });
     });
   }, []);
