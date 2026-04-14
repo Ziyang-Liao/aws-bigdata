@@ -15,8 +15,8 @@ export default function OpenMetadataPage() {
   if (loading) return <Spin size="large" style={{ display: "block", margin: "100px auto" }} />;
 
   const isUp = !!status?.version;
-  // Access OM via /om/ proxy path (Next.js rewrite)
-  const omBase = "/om";
+  // Access OM via its own CloudFront domain
+  const omBase = status?.url || "";
 
   return (
     <div>
