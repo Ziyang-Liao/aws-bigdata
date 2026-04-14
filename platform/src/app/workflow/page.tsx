@@ -27,10 +27,16 @@ export default function WorkflowPage() {
   const router = useRouter();
   const [filters, setFilters] = useState({ name: "", status: "", cron: "" });
 
-  const fetchData = async () => {
+  const fetchData = async (f?: typeof filters) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/workflow");
+      const cur = f || filters;
+      const params = new URLSearchParams();
+      if (cur.name) params.set("name", cur.name);
+      if (cur.status) params.set("status", cur.status);
+      if (cur.cron) params.set("cron", cur.cron);
+      const qs = params.toString();
+      const res = await fetch(`/api/workflow${qs ? `?${qs}` : ""}`);
       setData(await res.json());
     } finally {
       setLoading(false);
@@ -111,21 +117,16 @@ export default function WorkflowPage() {
       </div>
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space wrap>
-          <Input placeholder="工作流名称" prefix={<SearchOutlined />} value={filters.name} onChange={(e) => setFilters({ ...filters, name: e.target.value })} allowClear style={{ width: 200 }} />
-          <Select placeholder="状态" value={filters.status || undefined} onChange={(v) => setFilters({ ...filters, status: v || "" })} allowClear style={{ width: 120 }}
+          <Input placeholder="工作流名称" prefix={<SearchOutlined />} value={filters.name} onChange={(e) => setFilters({ ...filters, name: e.target.value })} onPressEnter={() => fetchData()} allowClear style={{ width: 200 }} />
+          <Select placeholder="状态" value={filters.status || undefined} onChange={(v) => { const f = { ...filters, status: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 120 }}
             options={[{ label: "草稿", value: "draft" }, { label: "已发布", value: "active" }, { label: "已暂停", value: "paused" }, { label: "异常", value: "error" }]} />
-          <Select placeholder="调度" value={filters.cron || undefined} onChange={(v) => setFilters({ ...filters, cron: v || "" })} allowClear style={{ width: 130 }}
+          <Select placeholder="调度" value={filters.cron || undefined} onChange={(v) => { const f = { ...filters, cron: v || "" }; setFilters(f); fetchData(f); }} allowClear style={{ width: 130 }}
             options={[{ label: "已配置", value: "configured" }, { label: "未配置", value: "none" }]} />
-          <Button onClick={() => setFilters({ name: "", status: "", cron: "" })}>重置</Button>
+          <Button type="primary" icon={<SearchOutlined />} onClick={() => fetchData()}>搜索</Button>
+          <Button onClick={() => { const f = { name: "", status: "", cron: "" }; setFilters(f); fetchData(f); }}>重置</Button>
         </Space>
       </Card>
-      <Table columns={columns} dataSource={data.filter((w) => {
-        if (filters.name && !w.name?.toLowerCase().includes(filters.name.toLowerCase())) return false;
-        if (filters.status && w.status !== filters.status) return false;
-        if (filters.cron === "configured" && !w.cronExpression) return false;
-        if (filters.cron === "none" && w.cronExpression) return false;
-        return true;
-      })} rowKey="workflowId" loading={loading} />
+      <Table columns={columns} dataSource={data} rowKey="workflowId" loading={loading} />
       <Modal title="新建工作流" open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)}>
         <Form form={form} layout="vertical">
           <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item>
