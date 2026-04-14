@@ -60,8 +60,8 @@ interface NetworkConfig {
 }
 
 export async function detectNetwork(host: string, dbType: string, datasourceId: string): Promise<NetworkConfig> {
-  const defaultVpc = process.env.DEFAULT_VPC_ID || "vpc-0c0289626d1aa4620";
-  const defaultSubnet = process.env.DEFAULT_SUBNET_ID || "subnet-00aed4243b32bc1ad";
+  const defaultVpc = process.env.DEFAULT_VPC_ID || "";
+  const defaultSubnet = process.env.DEFAULT_SUBNET_ID || "";
   const defaultAz = process.env.DEFAULT_AZ || "us-east-1a";
 
   let vpcId = defaultVpc;
