@@ -28,18 +28,9 @@ export default function WorkflowEditorPage() {
   const viewRunLog = async (runId: string) => {
     setLogModal({ open: true, runId, logs: [] });
     try {
-      // Try run-specific logs first, fallback to task-level logs
-      let logs: string[] = [];
-      const runRes = await fetch(`/api/sync/${id}/runs/${runId}/logs`);
-      const runData = await runRes.json();
-      const runLogs = runData.data?.logs || runData.logs || [];
-      if (runLogs.length > 0 && runLogs[0] !== "日志尚未生成，任务完成后将自动保存到 S3") {
-        logs = runLogs.map((l: any) => typeof l === "string" ? l : l.message || JSON.stringify(l));
-      } else {
-        const res = await fetch(`/api/monitor/tasks/${id}/logs`);
-        const data = await res.json();
-        logs = (data.logs || []).map((l: any) => typeof l === "string" ? l : (l.timestamp ? `[${new Date(l.timestamp).toISOString().slice(0,19)}] ` : "") + (l.message || ""));
-      }
+      const res = await fetch(`/api/monitor/tasks/${id}/logs?runId=${runId}`);
+      const data = await res.json();
+      const logs = (data.logs || []).map((l: any) => typeof l === "string" ? l : (l.timestamp ? `[${new Date(l.timestamp).toISOString().slice(0,19)}] ` : "") + (l.message || ""));
       setLogModal({ open: true, runId, logs: logs.length > 0 ? logs : ["暂无日志"] });
     } catch { setLogModal(prev => ({ ...prev, logs: ["日志加载失败"] })); }
   };

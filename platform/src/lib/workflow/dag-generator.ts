@@ -93,30 +93,27 @@ def _update_run_record(run_id, status, context=None):
     dynamodb = boto3.resource("dynamodb", region_name=region)
     now = datetime.utcnow().isoformat() + "Z"
     try:
-        update_expr = "SET #s = :s, finishedAt = :t"
-        attr_names = {"#s": "status"}
-        attr_vals = {":s": status, ":t": now}
-        # Calculate duration from dag_run
         dag_run = context.get("dag_run") if context else None
+        duration = 0
+        started_at = now
         if dag_run and dag_run.start_date:
             duration = int((datetime.utcnow() - dag_run.start_date.replace(tzinfo=None)).total_seconds())
-            update_expr += ", #d = :d"
-            attr_names["#d"] = "duration"
-            attr_vals[":d"] = duration
-        # Capture error from failed task
+            started_at = dag_run.start_date.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        # Determine trigger type from run_id
+        triggered_by = "schedule" if run_id.startswith("scheduled__") else "manual"
+        error_msg = None
         if status == "failed" and context:
-            ti = context.get("task_instance")
-            err = str(context.get("exception", "")) or (ti.log_url if ti else "")
-            if err:
-                update_expr += ", #e = :e"
-                attr_names["#e"] = "error"
-                attr_vals[":e"] = err[:500]
-        dynamodb.Table("bgp-task-runs").update_item(
-            Key={"taskId": WORKFLOW_ID, "runId": run_id},
-            UpdateExpression=update_expr,
-            ExpressionAttributeNames=attr_names,
-            ExpressionAttributeValues=attr_vals,
-        )
+            error_msg = str(context.get("exception", ""))[:500] or None
+        # Upsert: creates record for MWAA-scheduled runs, updates for manual runs
+        item = {
+            "taskId": WORKFLOW_ID, "runId": run_id, "taskType": "workflow",
+            "status": status, "startedAt": started_at, "finishedAt": now,
+            "duration": duration, "triggeredBy": triggered_by,
+            "airflowDagId": "${dagId}",
+        }
+        if error_msg:
+            item["error"] = error_msg
+        dynamodb.Table("bgp-task-runs").put_item(Item=item)
     except Exception as e:
         print(f"Failed to update run record: {e}")
 

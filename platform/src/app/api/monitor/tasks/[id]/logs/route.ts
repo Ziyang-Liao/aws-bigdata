@@ -7,23 +7,19 @@ import { docClient, TABLES } from "@/lib/aws/dynamodb";
 const USER_ID = "default-user";
 const s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const runId = req.nextUrl.searchParams.get("runId");
+
   // Try sync task first
   const { Item: task } = await docClient.send(new GetCommand({ TableName: TABLES.SYNC_TASKS, Key: { userId: USER_ID, taskId: params.id } }));
 
   if (task) {
-    // Get latest run record
     const { Items = [] } = await docClient.send(new QueryCommand({
-      TableName: TABLES.TASK_RUNS,
-      KeyConditionExpression: "taskId = :t",
-      ExpressionAttributeValues: { ":t": params.id },
-      ScanIndexForward: false,
-      Limit: 1,
+      TableName: TABLES.TASK_RUNS, KeyConditionExpression: "taskId = :t",
+      ExpressionAttributeValues: { ":t": params.id }, ScanIndexForward: false, Limit: 1,
     }));
-
     const run = Items[0];
     if (run?.logS3Key) {
-      // Read log from S3
       try {
         const bucket = process.env.GLUE_SCRIPTS_BUCKET || `bgp-glue-scripts-${process.env.AWS_ACCOUNT_ID}`;
         const { Body } = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: run.logS3Key }));
@@ -31,23 +27,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
         return NextResponse.json({ logs: text.split("\n").map((line: string) => ({ message: line })) });
       } catch {}
     }
-
-    // Fallback: try CloudWatch directly
-    try {
-      const { CloudWatchLogsClient, FilterLogEventsCommand } = await import("@aws-sdk/client-cloudwatch-logs");
-      const cwl = new CloudWatchLogsClient({ region: process.env.AWS_REGION || "us-east-1" });
-      const jobName = task.glueJobName;
-      if (jobName) {
-        const { events = [] } = await cwl.send(new FilterLogEventsCommand({
-          logGroupName: "/aws-glue/jobs/output",
-          filterPattern: "",
-          limit: 100,
-        }));
-        if (events.length > 0) {
-          return NextResponse.json({ logs: events.map((e: any) => ({ timestamp: e.timestamp, message: e.message })) });
-        }
-      }
-    } catch {}
+    return NextResponse.json({ logs: [{ message: "暂无日志" }] });
   }
 
   // Try workflow
@@ -59,38 +39,45 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
     try {
       const { CloudWatchLogsClient, FilterLogEventsCommand, DescribeLogStreamsCommand } = await import("@aws-sdk/client-cloudwatch-logs");
       const cwl = new CloudWatchLogsClient({ region: process.env.AWS_REGION || "us-east-1" });
-      const envName = process.env.MWAA_ENV_NAME || "bgp-mwaa";
-      const allLogs: any[] = [];
-      const logGroup = `airflow-${envName}-Task`;
+      const logGroup = `airflow-${process.env.MWAA_ENV_NAME || "bgp-mwaa"}-Task`;
 
-      // Find log streams matching this DAG
+      // Build stream prefix: if runId provided, filter to that specific run
+      const prefix = runId ? `dag_id=${dagId}/run_id=${runId}/` : `dag_id=${dagId}/`;
       const { logStreams = [] } = await cwl.send(new DescribeLogStreamsCommand({
-        logGroupName: logGroup,
-        logStreamNamePrefix: `dag_id=${dagId}/`,
-        limit: 10,
+        logGroupName: logGroup, logStreamNamePrefix: prefix, limit: 20,
       }));
 
-      for (const stream of logStreams.slice(0, 5)) {
-        try {
-          const { events = [] } = await cwl.send(new FilterLogEventsCommand({
-            logGroupName: logGroup,
-            logStreamNames: [stream.logStreamName!],
-            limit: 200,
-          }));
-          for (const e of events) {
-            allLogs.push({ timestamp: e.timestamp, message: e.message?.trim() });
-          }
-        } catch {}
+      if (!runId && logStreams.length > 0) {
+        // No specific run requested: get the latest run's streams
+        // Stream names: dag_id=xxx/run_id=yyy/task_id=zzz/attempt=1.log
+        const runIds = Array.from(new Set(logStreams.map(s => s.logStreamName?.split("/")[1] || "")));
+        const latestRunId = runIds[runIds.length - 1]; // last one is latest
+        const filtered = logStreams.filter(s => s.logStreamName?.includes(latestRunId));
+        return await fetchLogsFromStreams(cwl, logGroup, filtered);
       }
 
-      if (allLogs.length > 0) {
-        allLogs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-        return NextResponse.json({ logs: allLogs });
-      }
+      return await fetchLogsFromStreams(cwl, logGroup, logStreams);
     } catch {}
 
-    return NextResponse.json({ logs: [{ message: "暂无日志，请触发运行后查看" }] });
+    return NextResponse.json({ logs: [{ message: "暂无日志" }] });
   }
 
   return NextResponse.json({ logs: [], message: "暂无日志" });
+}
+
+async function fetchLogsFromStreams(cwl: any, logGroup: string, streams: any[]) {
+  const { FilterLogEventsCommand } = await import("@aws-sdk/client-cloudwatch-logs");
+  const allLogs: any[] = [];
+  for (const stream of streams.slice(0, 10)) {
+    try {
+      const { events = [] } = await cwl.send(new FilterLogEventsCommand({
+        logGroupName: logGroup, logStreamNames: [stream.logStreamName!], limit: 200,
+      }));
+      for (const e of events) {
+        allLogs.push({ timestamp: e.timestamp, message: e.message?.trim() });
+      }
+    } catch {}
+  }
+  allLogs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  return NextResponse.json({ logs: allLogs.length > 0 ? allLogs : [{ message: "暂无日志" }] });
 }

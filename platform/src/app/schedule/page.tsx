@@ -20,9 +20,10 @@ export default function SchedulePage() {
     setRunRecords((prev) => ({ ...prev, [id]: runs }));
   };
 
-  const viewLog = async (id: string) => {
+  const viewLog = async (id: string, runId?: string) => {
     setLogModal({ open: true, id, logs: [] });
-    const res = await fetch(`/api/monitor/tasks/${id}/logs`);
+    const url = runId ? `/api/monitor/tasks/${id}/logs?runId=${runId}` : `/api/monitor/tasks/${id}/logs`;
+    const res = await fetch(url);
     const data = await res.json();
     setLogModal({ open: true, id, logs: data.logs || [] });
   };
@@ -123,7 +124,7 @@ export default function SchedulePage() {
                   { title: "结束时间", dataIndex: "finishedAt", width: 170, render: (v: string) => v ? v.slice(0,19).replace("T"," ") : "-" },
                   { title: "耗时", dataIndex: "duration", width: 70, render: (v: number) => v ? `${v}s` : "-" },
                   { title: "错误", dataIndex: "error", ellipsis: true, render: (v: string) => v ? <span style={{color:"#ff4d4f"}}>{v}</span> : "-" },
-                  { title: "操作", width: 70, render: (_: any) => <Button size="small" type="link" onClick={() => viewLog(record.itemId)}>日志</Button> },
+                  { title: "操作", width: 70, render: (_: any, r: any) => <Button size="small" type="link" onClick={() => viewLog(record.itemId, r.runId)}>日志</Button> },
                 ]}
               />
             );
